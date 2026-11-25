@@ -146,6 +146,31 @@ main{padding:0 16px}
 .syncstatus{background:var(--card);border-radius:14px;padding:12px 14px;border:1px solid var(--line);font-size:15px;margin-top:10px}
 .syncmsg{font-size:14px;margin-top:10px;color:var(--muted)}
 .syncmsg.err{color:var(--danger)}
+/* Fotos */
+.pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:14px}
+.ph{position:relative;aspect-ratio:1;border-radius:12px;overflow:hidden;background:var(--card);cursor:pointer;border:0;padding:0}
+.ph img{width:100%;height:100%;object-fit:cover;display:block}
+.ph span{position:absolute;left:0;right:0;bottom:0;padding:14px 6px 4px;font-size:11px;color:#fff;text-align:left;
+  background:linear-gradient(transparent,rgba(0,0,0,.6))}
+.phtoday{background:var(--card);border-radius:20px;padding:14px;box-shadow:var(--shadow);margin-top:12px}
+.phtoday img{width:100%;border-radius:14px;display:block}
+#cropC,#tlC{width:100%;aspect-ratio:1;display:block;border-radius:16px;background:#000;touch-action:none}
+.bigimg{width:100%;border-radius:16px;display:block;background:var(--bg);aspect-ratio:1;object-fit:cover}
+progress{width:100%;height:10px;margin-top:12px;accent-color:var(--accent)}
+video{width:100%;border-radius:16px;background:#000;display:block}
+.note{display:flex;gap:10px;align-items:center;background:var(--card);border-radius:16px;padding:12px 14px;margin-top:12px;
+  box-shadow:var(--shadow);cursor:pointer;font-size:15px;border:0;width:100%;text-align:left}
+.note.alert{background:#fbe3df;color:#7a1f16}
+@media (prefers-color-scheme: dark){ .note.alert{background:#4a1d18;color:#ffd9d3} }
+/* Tipps */
+.adv{display:flex;gap:8px;padding:8px 0;border-top:1px solid var(--line);font-size:14px;line-height:1.45}
+.adv:first-of-type{border-top:0}
+.adv b{font-weight:600}
+.adv.alert{color:var(--danger)}
+.advtips{margin-top:8px;font-size:14px}
+.advtips summary{cursor:pointer;font-weight:600;padding:6px 0;color:var(--accent)}
+.advtips ul{margin:4px 0 0;padding-left:20px}.advtips li{margin:5px 0}
+.disc{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.4}
 .field{margin-top:12px}
 .field label{display:block;font-size:13px;color:var(--muted);margin:0 2px 6px;font-weight:600}
 </style>
@@ -175,8 +200,16 @@ main{padding:0 16px}
       <div class="card wide" data-type="feed"><button class="statbtn" data-stat="feed" aria-label="Statistik">📊</button>
         <div class="ic">🤱</div><div class="lb" id="lb-feed">Stillen</div><div class="st" id="st-feed"></div></div>
     </div>
+    <div id="homeNotes"></div>
     <h2>Heute</h2>
     <div id="today" class="list"></div>
+  </section>
+
+  <!-- Fotos -->
+  <section id="v-photos" hidden>
+    <div id="photoHead"></div>
+    <div class="pgrid" id="photoGrid"></div>
+    <input type="file" id="photoFile" accept="image/*" hidden>
   </section>
 
   <!-- Statistik -->
@@ -196,6 +229,8 @@ main{padding:0 16px}
   <section id="v-data" hidden>
     <div class="field"><label for="babyName">Name des Babys</label>
       <input id="babyName" placeholder="z. B. Mia" autocomplete="off"></div>
+    <div class="field"><label for="babyBirth">Geburtsdatum (für Alter &amp; Tipps)</label>
+      <input id="babyBirth" type="date"></div>
 
     <h2>Geräte-Sync</h2>
     <div id="syncBox"></div>
@@ -222,6 +257,7 @@ main{padding:0 16px}
 <nav class="tabs" id="tabs">
   <button data-view="home" class="on"><span>🏠</span>Start</button>
   <button data-view="stats"><span>📊</span>Statistik</button>
+  <button data-view="photos"><span>📷</span>Fotos</button>
   <button data-view="history"><span>🗒️</span>Verlauf</button>
   <button data-view="data"><span>📤</span>Daten</button>
 </nav>
@@ -244,7 +280,7 @@ const TYPES = {
 const DIAPER_KIND  = {wet:'Nass', stool:'Stuhl', both:'Nass + Stuhl'};
 const DIAPER_ICON  = {wet:'💧', stool:'💩', both:'💧💩'};
 const STOOL_CONS   = {liquid:'Flüssig', soft:'Breiig', normal:'Normal', hard:'Fest / hart'};
-const STOOL_COLOR  = {yellow:'Gelb', brown:'Braun', green:'Grün', black:'Schwarz', red:'Rötlich', other:'Andere'};
+const STOOL_COLOR  = {yellow:'Gelb', brown:'Braun', green:'Grün', black:'Schwarz', red:'Rötlich', pale:'Hell / weißlich / grau', other:'Andere'};
 const SIDES        = {left:'Links', right:'Rechts', bottle:'Fläschchen'};
 const MEAL_GAP     = 20 * 60000; // Stillvorgänge mit < 20 min Pause = eine Mahlzeit
 const WD = ['So','Mo','Di','Mi','Do','Fr','Sa'];
@@ -253,9 +289,9 @@ const WD = ['So','Mo','Di','Mi','Do','Fr','Sa'];
 function load(){
   try{
     const s = JSON.parse(localStorage.getItem(KEY));
-    if (s && Array.isArray(s.events)) return Object.assign({name:'', events:[]}, s);
+    if (s && Array.isArray(s.events)) return Object.assign({name:'', birth:'', events:[], photos:[]}, s);
   }catch(e){}
-  return {name:'', events:[]};
+  return {name:'', birth:'', events:[], photos:[]};
 }
 let state = load();
 function save(){ localStorage.setItem(KEY, JSON.stringify(state)); scheduleFlush(); }
@@ -411,6 +447,7 @@ function openDiaper(){
       closeSheet();
       const e = newEvent('diaper', {kind}); if (cons) e.cons = cons; if (color) e.color = color;
       addEvent(e, 'Windel: ' + detail(e));
+      stoolAlert(e);
     }
   };
 }
@@ -717,7 +754,7 @@ function renderStats(){
   }
 
   if (!tracked.length) html = `<div class="panel"><div class="empty">Im gewählten Zeitraum gibt es noch keine Daten.</div></div>`;
-  $('#statBody').innerHTML = html;
+  $('#statBody').innerHTML = adviceHtml(statType) + html;
 }
 $('#statTypes').onclick = ev => { const b = ev.target.closest('[data-st]'); if (b){ statType = b.dataset.st; renderStats(); } };
 $('#statRange').onclick = ev => { const b = ev.target.closest('[data-r]'); if (b){ statRange = +b.dataset.r; renderStats(); } };
@@ -725,11 +762,14 @@ $('#statRange').onclick = ev => { const b = ev.target.closest('[data-r]'); if (b
 /* ---------- Daten / Export ---------- */
 function renderData(){
   if (document.activeElement !== $('#babyName')) $('#babyName').value = state.name || '';
+  if (document.activeElement !== $('#babyBirth')) $('#babyBirth').value = state.birth || '';
+  $('#babyBirth').max = todayKey();
   renderSync();
   const ev = sorted();
   $('#countInfo').textContent = ev.length ? `${ev.length} Einträge seit ${new Date(ev[0].start).toLocaleDateString('de-DE')}` : 'Noch keine Einträge';
 }
 $('#babyName').oninput = ev => { state.name = ev.target.value.trim(); save(); renderHeader(); };
+$('#babyBirth').onchange = ev => { state.birth = ev.target.value || ''; save(); renderHeader(); };
 
 const stamp = () => { const d = new Date(); return `${dayKey(d.getTime())}_${pad(d.getHours())}${pad(d.getMinutes())}`; };
 const fileBase = () => 'babytracker' + (state.name ? '_' + state.name.replace(/[^\wäöüÄÖÜß-]+/g, '') : '') + '_' + stamp();
@@ -786,7 +826,8 @@ $('#impFile').onchange = async ev => {
 $('#wipe').onclick = () => {
   if (!state.events.length) return;
   if (!confirm('Wirklich ALLE Einträge löschen? Das kann nicht rückgängig gemacht werden. Tipp: vorher ein Backup teilen.'
-    + (sync.ready ? '\n\nAchtung: Der Sync ist aktiv – die Einträge werden auf ALLEN Geräten gelöscht.' : ''))) return;
+    + (sync.ready ? '\n\nAchtung: Der Sync ist aktiv – die Einträge werden auf ALLEN Geräten gelöscht.' : '')
+    + '\n\nFotos bleiben erhalten (die löschst du einzeln im Foto-Tab).')) return;
   if (!confirm('Ganz sicher?')) return;
   state.events = []; save(); render();
 };
@@ -810,14 +851,25 @@ const sync = {fb:null, user:null, stage:'off', ready:false, serverOk:false, pend
 let base = (() => { try { return JSON.parse(localStorage.getItem(BASE_KEY)); } catch(e){ return null; } })();
 const saveBase = () => localStorage.setItem(BASE_KEY, JSON.stringify(base));
 const ej = e => JSON.stringify(e, Object.keys(e).sort());
+const META_FIELDS = ['name', 'birth'];
+const metaOf = o => JSON.stringify({name: (o && o.name) || '', birth: (o && o.birth) || ''});
+// Felder, die lokal geändert und noch nicht übertragen sind (leere Felder vor dem ersten Sync zählen nicht)
+const metaPending = () => META_FIELDS.filter(k => (state[k] || '') !== ((base && base[k]) || '') && (base || state[k]));
+function ensureBase(){
+  base = base || {};
+  base.events = base.events || {}; base.photos = base.photos || {};
+  if (base.name == null) base.name = '';
+  if (base.birth == null) base.birth = '';
+}
 
 function pendingChanges(){
-  const b = base ? base.events : {};
+  const b = base && base.events ? base.events : {};
   const ups = state.events.filter(e => b[e.id] !== ej(e));
   const ids = new Set(state.events.map(e => e.id));
   const dels = Object.keys(b).filter(id => !ids.has(id));
-  const nameChanged = (state.name || '') !== ((base && base.name) || '');
-  return {ups, dels, nameChanged, count: ups.length + dels.length + (nameChanged ? 1 : 0)};
+  const nameChanged = metaPending().length > 0;
+  const pp = photoPending();
+  return {ups, dels, nameChanged, count: ups.length + dels.length + (nameChanged ? 1 : 0) + pp.ups.length + pp.dels.length};
 }
 
 let flushTimer = null;
@@ -827,12 +879,17 @@ function flush(){
   const p = pendingChanges(), {db, f} = sync.fb, sent = sync.sent, ops = [];
   p.ups.forEach(e => { const j = ej(e); if (sent[e.id] !== j){ sent[e.id] = j; ops.push(b => b.set(f.doc(db, 'events', e.id), e)); } });
   p.dels.forEach(id => { if (sent[id] !== '-'){ sent[id] = '-'; ops.push(b => b.delete(f.doc(db, 'events', id))); } });
-  if (p.nameChanged && sent['@name'] !== state.name){ sent['@name'] = state.name; ops.push(b => b.set(f.doc(db, 'meta', 'main'), {name: state.name || ''}, {merge:true})); }
+  if (p.nameChanged && sent['@meta'] !== metaOf(state)){
+    sent['@meta'] = metaOf(state);
+    const fields = {}; metaPending().forEach(k => { fields[k] = state[k] || ''; });
+    ops.push(b => b.set(f.doc(db, 'meta', 'main'), fields, {merge:true}));
+  }
   for (let i = 0; i < ops.length; i += 450){
     const batch = f.writeBatch(db);
     ops.slice(i, i + 450).forEach(op => op(batch));
     batch.commit().catch(err => { sync.sent = {}; syncError(err); });
   }
+  photoFlush();
   setSyncStatus();
 }
 
@@ -843,7 +900,7 @@ function onEvents(snap){
   p.dels.forEach(id => map.delete(id));
   state.events = [...map.values()];
   if (!snap.metadata.fromCache && !snap.metadata.hasPendingWrites){
-    base = base || {name:'', events:{}};
+    ensureBase();
     base.events = {};
     snap.docs.forEach(d => { base.events[d.id] = ej(Object.assign(d.data(), {id:d.id})); });
     saveBase(); sync.sent = {};
@@ -854,9 +911,11 @@ function onEvents(snap){
   if (pendingChanges().count) scheduleFlush(); else setSyncStatus();
 }
 function onMeta(snap){
-  const remote = (snap.exists() && snap.data().name) || '';
-  if ((state.name || '') === ((base && base.name) || '')) state.name = remote;   // nur übernehmen, wenn lokal nichts offen ist
-  if (!snap.metadata.fromCache && !snap.metadata.hasPendingWrites){ base = base || {name:'', events:{}}; base.name = remote; saveBase(); }
+  const d = snap.exists() ? snap.data() : {};
+  const remote = {name: d.name || '', birth: d.birth || ''};
+  const pend = metaPending();
+  META_FIELDS.forEach(k => { if (!pend.includes(k)) state[k] = remote[k]; });  // je Feld: Server-Wert, außer lokal ist etwas offen
+  if (!snap.metadata.fromCache && !snap.metadata.hasPendingWrites){ ensureBase(); base.name = remote.name; base.birth = remote.birth; saveBase(); }
   localStorage.setItem(KEY, JSON.stringify(state));
   render();
 }
@@ -880,6 +939,8 @@ function startListening(){
     const {db, f} = sync.fb;
     sync.unsubs.push(f.onSnapshot(f.collection(db, 'events'), {includeMetadataChanges:true}, onEvents, syncError));
     sync.unsubs.push(f.onSnapshot(f.doc(db, 'meta', 'main'), {includeMetadataChanges:true}, onMeta, syncError));
+    sync.photoErr = '';
+    sync.unsubs.push(f.onSnapshot(f.collection(db, 'photos'), {includeMetadataChanges:true}, onPhotos, photoSyncError));
     sync.ready = true; flush();
   }
   renderSync(true);
@@ -911,6 +972,7 @@ function syncInfo(){
   if (s === 'unverified') return {icon:'✉️', short:'E-Mail bestätigen', text:'E-Mail-Adresse noch nicht bestätigt.'};
   if (s !== 'on') return null;
   if (sync.error) return {icon:'⚠️', short:'Sync-Fehler', text:sync.error};
+  if (sync.photoErr) return {icon:'⚠️', short:'Fotos: kein Sync', text:sync.photoErr};
   const n = pendingChanges().count;
   if (!sync.serverOk) return {icon:'📴', short:'Offline' + (n ? ` · ${n}` : ''), text:'Offline' + (n ? ` – ${n} Änderung${n > 1 ? 'en' : ''} warten auf Übertragung.` : ' – neue Einträge werden später übertragen.')};
   if (n || sync.pendingWrites) return {icon:'🔄', short:'Sync …', text:'Wird synchronisiert …'};
@@ -1002,27 +1064,32 @@ function showView(v, fromBack){
   if (!fromBack && v !== 'home' && view === 'home') history.pushState({tab:v}, '');
   else if (!fromBack && v === 'home' && view !== 'home' && history.state && history.state.tab){ history.back(); return; }
   view = v;
-  ['home','stats','history','data'].forEach(x => $('#v-' + x).hidden = x !== v);
+  ['home','stats','photos','history','data'].forEach(x => $('#v-' + x).hidden = x !== v);
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.view === v));
   window.scrollTo(0, 0); render();
 }
 $('#tabs').onclick = ev => { const b = ev.target.closest('[data-view]'); if (b) showView(b.dataset.view); };
 function renderHeader(){
   $('#title').textContent = state.name ? state.name : 'Baby-Tracker';
-  $('#subtitle').textContent = new Date().toLocaleDateString('de-DE', {weekday:'long', day:'numeric', month:'long'});
+  const age = state.birth ? ageText() : '';
+  $('#subtitle').textContent = new Date().toLocaleDateString('de-DE', {weekday:'long', day:'numeric', month:'long'})
+    + (age ? ' · ' + age : '');
 }
 function render(){
   renderHeader();
-  if (view === 'home'){ renderCards(); renderToday(); }
+  if (view === 'home'){ renderCards(); renderToday(); $('#homeNotes').innerHTML = homeAlertsHtml() + photoReminderHtml(); }
   if (view === 'stats') renderStats();
+  if (view === 'photos') renderPhotos();
   if (view === 'history') renderHistory();
   if (view === 'data') renderData();
 }
 setInterval(() => { if (view === 'home' && !document.hidden) renderCards(); }, 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden){ state = load(); render(); } });
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
-render();
-initSync();
+// Start erst, wenn auch advice.js und photos.js geladen sind
+document.addEventListener('DOMContentLoaded', () => { render(); initSync(); });
 </script>
+<script src="advice.js"></script>
+<script src="photos.js"></script>
 </body>
 </html>

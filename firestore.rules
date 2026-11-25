@@ -12,7 +12,9 @@ service cloud.firestore {
           'partner.adresse@example.com'
         ];
     }
-    match /events/{id} { allow read, write: if erlaubt(); }
-    match /meta/{id}   { allow read, write: if erlaubt(); }
+    match /events/{id}    { allow read, write: if erlaubt(); }
+    match /meta/{id}      { allow read, write: if erlaubt(); }
+    match /photos/{id}    { allow read, write: if erlaubt(); }
+    match /photoData/{id} { allow read, write: if erlaubt(); }
   }
 }
