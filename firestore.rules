@@ -1,0 +1,18 @@
+rules_version = '2';
+// Vorlage für die Firestore-Regeln (in der Firebase-Konsole unter Firestore → Regeln einfügen).
+// Nur angemeldete Konten mit bestätigter E-Mail-Adresse aus der Liste dürfen lesen und schreiben.
+// Die echten E-Mail-Adressen nur in der Konsole eintragen, nicht in diese öffentliche Datei.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function erlaubt() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() in [
+          'deine.adresse@example.com',
+          'partner.adresse@example.com'
+        ];
+    }
+    match /events/{id} { allow read, write: if erlaubt(); }
+    match /meta/{id}   { allow read, write: if erlaubt(); }
+  }
+}

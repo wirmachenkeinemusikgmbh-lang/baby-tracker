@@ -141,6 +141,11 @@ main{padding:0 16px}
 .dist .dt{flex:1;height:10px;background:var(--bg);border-radius:5px;overflow:hidden}
 .dist .df{height:100%;background:var(--accent);border-radius:5px}
 .dist .dc{width:58px;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+.syncind{font-size:13px;color:var(--muted);background:var(--card);border:1px solid var(--line);border-radius:999px;
+  padding:6px 10px;white-space:nowrap;max-width:46vw;overflow:hidden;text-overflow:ellipsis}
+.syncstatus{background:var(--card);border-radius:14px;padding:12px 14px;border:1px solid var(--line);font-size:15px;margin-top:10px}
+.syncmsg{font-size:14px;margin-top:10px;color:var(--muted)}
+.syncmsg.err{color:var(--danger)}
 .field{margin-top:12px}
 .field label{display:block;font-size:13px;color:var(--muted);margin:0 2px 6px;font-weight:600}
 </style>
@@ -152,6 +157,7 @@ main{padding:0 16px}
     <h1 id="title">Baby-Tracker</h1>
     <div id="subtitle" class="muted"></div>
   </div>
+  <button id="syncInd" class="syncind" hidden aria-label="Sync-Status"></button>
 </header>
 
 <main>
@@ -190,6 +196,9 @@ main{padding:0 16px}
   <section id="v-data" hidden>
     <div class="field"><label for="babyName">Name des Babys</label>
       <input id="babyName" placeholder="z. B. Mia" autocomplete="off"></div>
+
+    <h2>Geräte-Sync</h2>
+    <div id="syncBox"></div>
 
     <h2>Exportieren &amp; teilen</h2>
     <div class="muted" id="countInfo"></div>
@@ -249,7 +258,7 @@ function load(){
   return {name:'', events:[]};
 }
 let state = load();
-function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+function save(){ localStorage.setItem(KEY, JSON.stringify(state)); scheduleFlush(); }
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
 
 /* ---------- Helfer ---------- */
@@ -715,7 +724,8 @@ $('#statRange').onclick = ev => { const b = ev.target.closest('[data-r]'); if (b
 
 /* ---------- Daten / Export ---------- */
 function renderData(){
-  $('#babyName').value = state.name || '';
+  if (document.activeElement !== $('#babyName')) $('#babyName').value = state.name || '';
+  renderSync();
   const ev = sorted();
   $('#countInfo').textContent = ev.length ? `${ev.length} Einträge seit ${new Date(ev[0].start).toLocaleDateString('de-DE')}` : 'Noch keine Einträge';
 }
@@ -775,10 +785,208 @@ $('#impFile').onchange = async ev => {
 };
 $('#wipe').onclick = () => {
   if (!state.events.length) return;
-  if (!confirm('Wirklich ALLE Einträge löschen? Das kann nicht rückgängig gemacht werden. Tipp: vorher ein Backup teilen.')) return;
+  if (!confirm('Wirklich ALLE Einträge löschen? Das kann nicht rückgängig gemacht werden. Tipp: vorher ein Backup teilen.'
+    + (sync.ready ? '\n\nAchtung: Der Sync ist aktiv – die Einträge werden auf ALLEN Geräten gelöscht.' : ''))) return;
   if (!confirm('Ganz sicher?')) return;
   state.events = []; save(); render();
 };
+
+/* ---------- Geräte-Sync (Firebase) ----------
+   Alle Geräte teilen einen Datensatz in Firestore (Sammlung "events" + Dokument "meta/main").
+   "base" = zuletzt vom Server bestätigter Stand. Alles, was lokal davon abweicht, ist eine
+   noch nicht übertragene Änderung und wird hochgeladen – auch nach Offline-Phasen oder App-Neustart. */
+// Web-App-Konfiguration aus der Firebase-Konsole (diese Werte sind nicht geheim):
+const FIREBASE_CONFIG = null;
+const FB_URL = 'https://www.gstatic.com/firebasejs/10.12.2/';
+const BASE_KEY = 'babytracker.syncbase.v1';
+const sync = {fb:null, user:null, stage:'off', ready:false, serverOk:false, pendingWrites:false, error:'', unsubs:[], rendered:null, sent:{}};
+let base = (() => { try { return JSON.parse(localStorage.getItem(BASE_KEY)); } catch(e){ return null; } })();
+const saveBase = () => localStorage.setItem(BASE_KEY, JSON.stringify(base));
+const ej = e => JSON.stringify(e, Object.keys(e).sort());
+
+function pendingChanges(){
+  const b = base ? base.events : {};
+  const ups = state.events.filter(e => b[e.id] !== ej(e));
+  const ids = new Set(state.events.map(e => e.id));
+  const dels = Object.keys(b).filter(id => !ids.has(id));
+  const nameChanged = (state.name || '') !== ((base && base.name) || '');
+  return {ups, dels, nameChanged, count: ups.length + dels.length + (nameChanged ? 1 : 0)};
+}
+
+let flushTimer = null;
+function scheduleFlush(){ clearTimeout(flushTimer); flushTimer = setTimeout(flush, 300); }
+function flush(){
+  if (!sync.ready) return setSyncStatus();
+  const p = pendingChanges(), {db, f} = sync.fb, sent = sync.sent, ops = [];
+  p.ups.forEach(e => { const j = ej(e); if (sent[e.id] !== j){ sent[e.id] = j; ops.push(b => b.set(f.doc(db, 'events', e.id), e)); } });
+  p.dels.forEach(id => { if (sent[id] !== '-'){ sent[id] = '-'; ops.push(b => b.delete(f.doc(db, 'events', id))); } });
+  if (p.nameChanged && sent['@name'] !== state.name){ sent['@name'] = state.name; ops.push(b => b.set(f.doc(db, 'meta', 'main'), {name: state.name || ''}, {merge:true})); }
+  for (let i = 0; i < ops.length; i += 450){
+    const batch = f.writeBatch(db);
+    ops.slice(i, i + 450).forEach(op => op(batch));
+    batch.commit().catch(err => { sync.sent = {}; syncError(err); });
+  }
+  setSyncStatus();
+}
+
+function onEvents(snap){
+  const p = pendingChanges();
+  const map = new Map(snap.docs.map(d => [d.id, Object.assign(d.data(), {id:d.id})]));
+  p.ups.forEach(e => map.set(e.id, e));      // lokale, noch nicht bestätigte Änderungen behalten
+  p.dels.forEach(id => map.delete(id));
+  state.events = [...map.values()];
+  if (!snap.metadata.fromCache && !snap.metadata.hasPendingWrites){
+    base = base || {name:'', events:{}};
+    base.events = {};
+    snap.docs.forEach(d => { base.events[d.id] = ej(Object.assign(d.data(), {id:d.id})); });
+    saveBase(); sync.sent = {};
+  }
+  sync.serverOk = !snap.metadata.fromCache; sync.pendingWrites = snap.metadata.hasPendingWrites; sync.error = '';
+  localStorage.setItem(KEY, JSON.stringify(state));
+  render();
+  if (pendingChanges().count) scheduleFlush(); else setSyncStatus();
+}
+function onMeta(snap){
+  const remote = (snap.exists() && snap.data().name) || '';
+  if ((state.name || '') === ((base && base.name) || '')) state.name = remote;   // nur übernehmen, wenn lokal nichts offen ist
+  if (!snap.metadata.fromCache && !snap.metadata.hasPendingWrites){ base = base || {name:'', events:{}}; base.name = remote; saveBase(); }
+  localStorage.setItem(KEY, JSON.stringify(state));
+  render();
+}
+
+function syncError(err){
+  console.warn('Sync', err);
+  const code = err && err.code;
+  sync.error = code === 'permission-denied'
+    ? 'Kein Zugriff – ist diese E-Mail-Adresse in den Firestore-Regeln freigegeben?'
+    : 'Sync-Fehler: ' + (code || (err && err.message) || err);
+  if (code === 'permission-denied') stopListening();
+  setSyncStatus(); renderSync(true);
+}
+function stopListening(){ sync.unsubs.forEach(u => u()); sync.unsubs = []; sync.ready = false; }
+function startListening(){
+  stopListening();
+  const u = sync.user;
+  sync.stage = !u ? 'signedout' : !u.emailVerified ? 'unverified' : 'on';
+  sync.error = ''; sync.serverOk = false; sync.sent = {};
+  if (sync.stage === 'on'){
+    const {db, f} = sync.fb;
+    sync.unsubs.push(f.onSnapshot(f.collection(db, 'events'), {includeMetadataChanges:true}, onEvents, syncError));
+    sync.unsubs.push(f.onSnapshot(f.doc(db, 'meta', 'main'), {includeMetadataChanges:true}, onMeta, syncError));
+    sync.ready = true; flush();
+  }
+  renderSync(true);
+}
+
+async function initSync(){
+  if (!FIREBASE_CONFIG){ sync.stage = 'unconfigured'; return renderSync(); }
+  sync.stage = 'loading'; renderSync();
+  try {
+    const [appM, authM, fsM] = await Promise.all(['firebase-app.js', 'firebase-auth.js', 'firebase-firestore.js'].map(f => import(FB_URL + f)));
+    const app = appM.initializeApp(FIREBASE_CONFIG);
+    let db;
+    try { db = fsM.initializeFirestore(app, {ignoreUndefinedProperties:true,
+            localCache: fsM.persistentLocalCache({tabManager: fsM.persistentMultipleTabManager()})}); }
+    catch(e){ db = fsM.initializeFirestore(app, {ignoreUndefinedProperties:true}); }
+    const auth = authM.getAuth(app);
+    sync.fb = {app, db, auth, a:authM, f:fsM};
+    authM.onAuthStateChanged(auth, user => { sync.user = user; startListening(); });
+  } catch(e){
+    console.warn('Sync laden', e);
+    sync.stage = 'loadfail'; renderSync(); setSyncStatus();
+  }
+}
+
+function syncInfo(){
+  const s = sync.stage;
+  if (s === 'loadfail') return {icon:'⚠️', short:'Sync aus', text:'Sync konnte nicht geladen werden (offline?). Deine Einträge bleiben gespeichert und werden später übertragen.'};
+  if (s === 'signedout') return {icon:'☁️', short:'Nicht angemeldet', text:'Nicht angemeldet – Einträge bleiben nur auf diesem Gerät.'};
+  if (s === 'unverified') return {icon:'✉️', short:'E-Mail bestätigen', text:'E-Mail-Adresse noch nicht bestätigt.'};
+  if (s !== 'on') return null;
+  if (sync.error) return {icon:'⚠️', short:'Sync-Fehler', text:sync.error};
+  const n = pendingChanges().count;
+  if (!sync.serverOk) return {icon:'📴', short:'Offline' + (n ? ` · ${n}` : ''), text:'Offline' + (n ? ` – ${n} Änderung${n > 1 ? 'en' : ''} warten auf Übertragung.` : ' – neue Einträge werden später übertragen.')};
+  if (n || sync.pendingWrites) return {icon:'🔄', short:'Sync …', text:'Wird synchronisiert …'};
+  return {icon:'✅', short:'Synchron', text:'Alles synchron.'};
+}
+function setSyncStatus(){
+  const i = syncInfo(), ind = $('#syncInd');
+  ind.hidden = !i;
+  if (i) ind.textContent = i.icon + ' ' + i.short;
+  const st = $('#syncStatus'); if (st && i) st.textContent = i.icon + ' ' + i.text;
+}
+$('#syncInd').onclick = () => showView('data');
+
+function renderSync(force){
+  const s = sync.stage;
+  if (!force && sync.rendered === s) return setSyncStatus();
+  sync.rendered = s;
+  const u = sync.user, box = $('#syncBox');
+  const logout = '<button class="btn ghost wide" data-s="logout">Abmelden</button>';
+  if (s === 'unconfigured' || s === 'off') box.innerHTML = '<div class="hint">Der Sync ist noch nicht eingerichtet. Die Daten bleiben vorerst nur auf diesem Gerät.</div>';
+  else if (s === 'loading') box.innerHTML = '<div class="hint">Sync wird geladen …</div>';
+  else if (s === 'loadfail') box.innerHTML = '<div class="syncstatus" id="syncStatus"></div><button class="btn wide" data-s="retryload">Erneut versuchen</button>';
+  else if (s === 'signedout') box.innerHTML = `
+    <div class="hint">Mit einem freigegebenen Konto anmelden, damit alle Geräte denselben Datensatz nutzen.
+      Einträge, die schon auf diesem Gerät sind, werden dabei übernommen.</div>
+    <div class="field"><label for="sEmail">E-Mail</label><input id="sEmail" type="email" inputmode="email" autocomplete="username" autocapitalize="off"></div>
+    <div class="field"><label for="sPass">Passwort</label><input id="sPass" type="password" autocomplete="current-password"></div>
+    <button class="btn primary wide" data-s="login">Anmelden</button>
+    <button class="btn wide" data-s="signup">Neues Konto erstellen</button>
+    <button class="btn ghost wide" data-s="reset">Passwort vergessen?</button>
+    <div class="syncmsg" id="syncMsg"></div>`;
+  else if (s === 'unverified') box.innerHTML = `
+    <div class="hint">Wir haben eine Bestätigungs-Mail an <b>${esc(u.email)}</b> geschickt (ggf. im Spam-Ordner schauen).
+      Öffne den Link darin und tippe dann hier auf „Ich habe bestätigt“.</div>
+    <button class="btn primary wide" data-s="verified">Ich habe bestätigt</button>
+    <button class="btn wide" data-s="resend">Mail erneut senden</button>${logout}
+    <div class="syncmsg" id="syncMsg"></div>`;
+  else if (s === 'on') box.innerHTML = `
+    <div class="muted">Angemeldet als <b>${esc(u.email)}</b></div>
+    <div class="syncstatus" id="syncStatus"></div>
+    ${sync.error ? '<button class="btn wide" data-s="retry">Erneut versuchen</button>' : ''}${logout}`;
+  setSyncStatus();
+}
+
+const AUTH_ERR = {
+  'auth/invalid-credential':'E-Mail oder Passwort ist falsch.', 'auth/wrong-password':'E-Mail oder Passwort ist falsch.',
+  'auth/user-not-found':'Zu dieser E-Mail gibt es kein Konto.', 'auth/invalid-email':'Die E-Mail-Adresse ist ungültig.',
+  'auth/email-already-in-use':'Für diese E-Mail gibt es schon ein Konto – bitte anmelden.',
+  'auth/weak-password':'Das Passwort muss mindestens 6 Zeichen haben.', 'auth/missing-password':'Bitte ein Passwort eingeben.',
+  'auth/network-request-failed':'Keine Internetverbindung.', 'auth/too-many-requests':'Zu viele Versuche – bitte kurz warten.',
+  'auth/operation-not-allowed':'E-Mail/Passwort-Anmeldung ist in Firebase noch nicht aktiviert.'
+};
+function syncMsg(text, err){ const m = $('#syncMsg'); if (m){ m.textContent = text; m.className = 'syncmsg' + (err ? ' err' : ''); } }
+$('#syncBox').addEventListener('click', async ev => {
+  const b = ev.target.closest('[data-s]'); if (!b) return;
+  const a = b.dataset.s;
+  if (a === 'retryload') return initSync();
+  if (a === 'retry') return startListening();
+  const {auth, a:A} = sync.fb || {};
+  const email = ($('#sEmail')?.value || '').trim(), pass = $('#sPass')?.value || '';
+  b.disabled = true;
+  try {
+    if (a === 'login'){ syncMsg('Anmelden …'); await A.signInWithEmailAndPassword(auth, email, pass); }
+    if (a === 'signup'){
+      syncMsg('Konto wird erstellt …');
+      const cred = await A.createUserWithEmailAndPassword(auth, email, pass);
+      await A.sendEmailVerification(cred.user);
+    }
+    if (a === 'reset'){
+      if (!email) throw {code:'auth/invalid-email'};
+      await A.sendPasswordResetEmail(auth, email); syncMsg('Mail zum Zurücksetzen wurde gesendet.');
+    }
+    if (a === 'resend'){ await A.sendEmailVerification(auth.currentUser); syncMsg('Mail wurde erneut gesendet.'); }
+    if (a === 'verified'){
+      await auth.currentUser.reload(); await auth.currentUser.getIdToken(true);
+      if (!auth.currentUser.emailVerified) syncMsg('Noch nicht bestätigt – bitte den Link in der Mail öffnen.', true);
+      else { sync.user = auth.currentUser; startListening(); }
+    }
+    if (a === 'logout'){ stopListening(); await A.signOut(auth); }
+  } catch(err){
+    syncMsg(AUTH_ERR[err.code] || ('Fehler: ' + (err.code || err.message)), true);
+  } finally { b.disabled = false; }
+});
 
 /* ---------- Navigation & Rendern ---------- */
 let view = 'home';
@@ -807,6 +1015,7 @@ setInterval(() => { if (view === 'home' && !document.hidden) renderCards(); }, 1
 document.addEventListener('visibilitychange', () => { if (!document.hidden){ state = load(); render(); } });
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
 render();
+initSync();
 </script>
 </body>
 </html>

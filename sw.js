@@ -1,6 +1,6 @@
 // Service Worker: macht die App offline nutzbar.
 // Erst Netzwerk (damit Updates sofort ankommen), bei fehlender Verbindung aus dem Cache.
-const CACHE = 'babytracker-v2';
+const CACHE = 'babytracker-v3';
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
@@ -14,8 +14,16 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  const req = e.request;
-  if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
+  const req = e.request, url = new URL(req.url);
+  // Firebase-Bibliothek (versioniert, ändert sich nie): einmal laden, danach aus dem Cache – auch offline
+  if (req.method === 'GET' && url.origin === 'https://www.gstatic.com' && url.pathname.startsWith('/firebasejs/')){
+    e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(res => {
+      if (res.ok){ const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
+      return res;
+    })));
+    return;
+  }
+  if (req.method !== 'GET' || url.origin !== location.origin) return;
   e.respondWith(
     fetch(req).then(res => {
       if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
