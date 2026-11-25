@@ -796,7 +796,14 @@ $('#wipe').onclick = () => {
    "base" = zuletzt vom Server bestätigter Stand. Alles, was lokal davon abweicht, ist eine
    noch nicht übertragene Änderung und wird hochgeladen – auch nach Offline-Phasen oder App-Neustart. */
 // Web-App-Konfiguration aus der Firebase-Konsole (diese Werte sind nicht geheim):
-const FIREBASE_CONFIG = null;
+const FIREBASE_CONFIG = {
+  apiKey: 'AIzaSyDMhQdcevPn91vs4u6XDrB-BMWomdJTC2Q',
+  authDomain: 'baby-tracker-e94f5.firebaseapp.com',
+  projectId: 'baby-tracker-e94f5',
+  storageBucket: 'baby-tracker-e94f5.firebasestorage.app',
+  messagingSenderId: '790005890513',
+  appId: '1:790005890513:web:a3951d155459f219a034f0'
+};
 const FB_URL = 'https://www.gstatic.com/firebasejs/10.12.2/';
 const BASE_KEY = 'babytracker.syncbase.v1';
 const sync = {fb:null, user:null, stage:'off', ready:false, serverOk:false, pendingWrites:false, error:'', unsubs:[], rendered:null, sent:{}};
