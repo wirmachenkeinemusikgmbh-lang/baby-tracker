@@ -7,7 +7,11 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Baby">
-<meta name="theme-color" content="#f7f4ef">
+<meta name="theme-color" content="#f7f4ef" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#16140f" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <title>Baby-Tracker</title>
 <style>
 :root{
@@ -336,8 +340,19 @@ function toast(msg, snap, editId){
 function hideToast(){ $('#toast').hidden = true; }
 
 /* ---------- Sheet ---------- */
-function openSheet(html){ $('#sheet').innerHTML = '<div class="grab"></div>' + html; $('#sheet').hidden = false; $('#backdrop').hidden = false; }
-function closeSheet(){ $('#sheet').hidden = true; $('#backdrop').hidden = true; $('#sheet').onclick = null; }
+// Android-Zurück-Taste / Wischgeste schließt ein offenes Sheet statt die App zu verlassen
+function openSheet(html){
+  $('#sheet').innerHTML = '<div class="grab"></div>' + html;
+  if ($('#sheet').hidden) history.pushState({sheet:true}, '');
+  $('#sheet').hidden = false; $('#backdrop').hidden = false;
+}
+function hideSheet(){ $('#sheet').hidden = true; $('#backdrop').hidden = true; $('#sheet').onclick = null; }
+let ignorePop = false;
+function closeSheet(){ if ($('#sheet').hidden) return; hideSheet(); if (history.state && history.state.sheet){ ignorePop = true; history.back(); } }
+window.addEventListener('popstate', () => {
+  if (ignorePop){ ignorePop = false; return; }
+  if (!$('#sheet').hidden) hideSheet(); else if (view !== 'home') showView('home', true);
+});
 $('#backdrop').onclick = closeSheet;
 const chips = (map, sel, name) => Object.entries(map).map(([k,v]) =>
   `<button class="chip ${sel===k?'on':''}" data-${name}="${k}">${v}</button>`).join('');
@@ -767,7 +782,10 @@ $('#wipe').onclick = () => {
 
 /* ---------- Navigation & Rendern ---------- */
 let view = 'home';
-function showView(v){
+function showView(v, fromBack){
+  // Zurück-Taste aus einem anderen Tab führt zur Startseite
+  if (!fromBack && v !== 'home' && view === 'home') history.pushState({tab:v}, '');
+  else if (!fromBack && v === 'home' && view !== 'home' && history.state && history.state.tab){ history.back(); return; }
   view = v;
   ['home','stats','history','data'].forEach(x => $('#v-' + x).hidden = x !== v);
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.view === v));
@@ -787,6 +805,7 @@ function render(){
 }
 setInterval(() => { if (view === 'home' && !document.hidden) renderCards(); }, 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden){ state = load(); render(); } });
+if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
 render();
 </script>
 </body>
