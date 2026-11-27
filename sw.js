@@ -1,6 +1,6 @@
 // Service Worker: macht die App offline nutzbar.
 // Erst Netzwerk (damit Updates sofort ankommen), bei fehlender Verbindung aus dem Cache.
-const CACHE = 'babytracker-v5';
+const CACHE = 'babytracker-v6';
 const FILES = ['./', 'index.html', 'advice.js', 'photos.js', 'growth.js', 'features.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {

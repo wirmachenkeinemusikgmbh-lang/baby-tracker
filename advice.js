@@ -196,11 +196,36 @@ function adviceItems(cat, band, days, s){
   return items;
 }
 
+/* Farbskala Stuhlgang – angelehnt an die Stuhlfarbkarte im gelben Kinder-Untersuchungsheft.
+   Bildschirmfarben weichen ab: im Zweifel mit der gedruckten Karte vergleichen bzw. ärztlich abklären. */
+const STOOL_SCALE = [
+  {c:'#2b2a1c', n:'Schwarz-grün, zäh (Mekonium)', t:'Normal in den ersten 2–3 Lebenstagen', lvl:'ok'},
+  {c:'#d9a21b', n:'Senfgelb, goldgelb', t:'Normal – typisch bei Muttermilch, oft flüssig und „körnig“', lvl:'ok'},
+  {c:'#b9852c', n:'Gelbbraun, ocker', t:'Normal – häufig bei Fläschchennahrung', lvl:'ok'},
+  {c:'#7a4b1e', n:'Braun', t:'Normal – vor allem mit Beikost', lvl:'ok'},
+  {c:'#6f7f26', n:'Grün, grünlich', t:'Meist harmlos (z. B. Übergangsstuhl, Eisen, Nahrung). Bei Durchfall, Fieber oder Unwohlsein ärztlich abklären', lvl:'ok'},
+  {c:'#141414', n:'Schwarz (nach den ersten Tagen)', t:'Bedenklich – ärztlich abklären (kann auf Blut hindeuten; Eisenpräparate färben ebenfalls dunkel)', lvl:'warn'},
+  {c:'#a3241d', n:'Rot, blutig oder rote Streifen', t:'Bedenklich – ärztlich abklären (Ausnahme: nach Roter Bete o. Ä.)', lvl:'warn'},
+  {c:'#efe6b4', n:'Blassgelb, sehr hell', t:'Alarmzeichen – sofort zum Kinderarzt', lvl:'alert'},
+  {c:'#d8d1bd', n:'Lehmfarben, beige-grau', t:'Alarmzeichen – sofort zum Kinderarzt', lvl:'alert'},
+  {c:'#f4f1ea', n:'Weißlich, kalkfarben', t:'Alarmzeichen – sofort zum Kinderarzt', lvl:'alert'}
+];
+function stoolScaleHtml(){
+  const badge = {ok:['✅', 'unbedenklich'], warn:['⚠️', 'abklären'], alert:['🚨', 'sofort zum Arzt']};
+  return `<div class="sscale"><div class="lbl" style="margin-top:14px">Farbskala Stuhlgang</div>
+    ${STOOL_SCALE.map(s => `<div class="ssrow ${s.lvl}"><span class="sw" style="background:${s.c}"></span>
+      <span class="sst"><b>${s.n}</b><small>${s.t}</small></span><span class="ssb">${badge[s.lvl][0]}<small>${badge[s.lvl][1]}</small></span></div>`).join('')}
+    <div class="disc">Helle, weißliche oder graue Stühle können in den ersten Lebenswochen auf eine Gallengangsatresie hinweisen –
+      diese Lebererkrankung muss sehr früh behandelt werden. Vergleiche im Zweifel mit der gedruckten Stuhlfarbkarte im gelben
+      Kinder-Untersuchungsheft; Farben auf dem Bildschirm können abweichen.</div></div>`;
+}
+
 function adviceHtml(type){
   const cat = type === 'wake' ? 'sleep' : type;
   if (!curBaby().birth) return `<div class="panel"><h4>💡 Altersgerechte Tipps</h4>
     <div class="muted">Trag das Geburtsdatum ein, dann bekommst du hier Tipps und Orientierungswerte passend zum Alter deines Babys.</div>
-    <button class="btn wide" data-go="birth">Geburtsdatum eintragen</button></div>`;
+    <button class="btn wide" data-go="birth">Geburtsdatum eintragen</button>
+    ${cat === 'diaper' ? `<details class="advtips"><summary>Farbskala Stuhlgang</summary>${stoolScaleHtml()}</details>` : ''}</div>`;
   const days = ageDays();
   if (days < 0) return '';
   const band = bandFor(days), s = adviceStats();
@@ -209,8 +234,8 @@ function adviceHtml(type){
   return `<div class="panel"><h4>💡 Tipps · ${esc(ageText())} (${lebensmonat()}. Lebensmonat)</h4>
     <div class="muted" style="margin-bottom:6px">Auswertung der letzten 7 Tage im Vergleich zu typischen Werten für ${band.label}:</div>
     ${items.map(i => `<div class="adv ${i.lvl}"><span>${icon[i.lvl]}</span><span>${i.text}</span></div>`).join('')}
-    <details class="advtips"><summary>Allgemeine Tipps für dieses Alter</summary>
-      <ul>${band.tips[cat].map(t => `<li>${t}</li>`).join('')}</ul></details>
+    <details class="advtips"><summary>Allgemeine Tipps für dieses Alter${cat === 'diaper' ? ' & Farbskala Stuhlgang' : ''}</summary>
+      <ul>${band.tips[cat].map(t => `<li>${t}</li>`).join('')}</ul>${cat === 'diaper' ? stoolScaleHtml() : ''}</details>
     <div class="disc">Allgemeine Orientierungswerte – jedes Kind ist anders. Kein Ersatz für ärztlichen Rat. Bei Sorgen: Kinderarzt oder Hebamme;
       nachts/am Wochenende ärztlicher Bereitschaftsdienst 116 117, im Notfall 112.</div></div>`;
 }
