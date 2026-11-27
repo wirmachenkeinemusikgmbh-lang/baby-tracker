@@ -210,11 +210,46 @@ const STOOL_SCALE = [
   {c:'#d8d1bd', n:'Lehmfarben, beige-grau', t:'Alarmzeichen – sofort zum Kinderarzt', lvl:'alert'},
   {c:'#f4f1ea', n:'Weißlich, kalkfarben', t:'Alarmzeichen – sofort zum Kinderarzt', lvl:'alert'}
 ];
+/* Kreisdiagramm als eigenständiges SVG: alle Farben stehen direkt in der Grafik (keine Abhängigkeit von CSS) */
+const STOOL_LVL = {ok:{c:'#4f9a62', icon:'✅', t:'unbedenklich'}, warn:{c:'#e0a028', icon:'⚠️', t:'ärztlich abklären'}, alert:{c:'#d4483b', icon:'🚨', t:'sofort zum Kinderarzt'}};
+const isLight = hex => { const n = parseInt(hex.slice(1), 16); return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) > 150; };
+function arcPath(cx, cy, r0, r1, a0, a1){
+  const p = (r, a) => `${(cx + r * Math.cos(a)).toFixed(2)} ${(cy + r * Math.sin(a)).toFixed(2)}`, big = a1 - a0 > Math.PI ? 1 : 0;
+  return `M${p(r1, a0)} A${r1} ${r1} 0 ${big} 1 ${p(r1, a1)} L${p(r0, a1)} A${r0} ${r0} 0 ${big} 0 ${p(r0, a0)} Z`;
+}
+function stoolPieSvg(){
+  const n = STOOL_SCALE.length, step = 2 * Math.PI / n, start = -Math.PI / 2, C = 160, gap = 0.012;
+  let s = `<svg viewBox="0 0 320 320" width="100%" style="display:block;max-width:340px;margin:6px auto 0" role="img" aria-label="Farbskala Stuhlgang als Kreisdiagramm">`;
+  // äußerer Ring: Einordnung (grün / orange / rot)
+  ['ok', 'warn', 'alert'].forEach(l => {
+    const idx = STOOL_SCALE.map((x, i) => x.lvl === l ? i : -1).filter(i => i >= 0);
+    s += `<path d="${arcPath(C, C, 136, 154, start + idx[0] * step + gap, start + (idx[idx.length - 1] + 1) * step - gap)}" fill="${STOOL_LVL[l].c}"/>`;
+  });
+  // Farbsegmente mit Nummer
+  STOOL_SCALE.forEach((x, i) => {
+    const a0 = start + i * step, a1 = a0 + step, am = (a0 + a1) / 2;
+    s += `<path d="${arcPath(C, C, 58, 130, a0 + gap, a1 - gap)}" fill="${x.c}" stroke="#8a8178" stroke-opacity=".55" stroke-width="1"/>`;
+    s += `<text x="${(C + 95 * Math.cos(am)).toFixed(1)}" y="${(C + 95 * Math.sin(am) + 6).toFixed(1)}" text-anchor="middle" font-size="17" font-weight="700"
+      font-family="-apple-system, sans-serif" fill="${isLight(x.c) ? '#2a2622' : '#ffffff'}">${i + 1}</text>`;
+    if (x.lvl !== 'ok') s += `<text x="${(C + 145 * Math.cos(am)).toFixed(1)}" y="${(C + 145 * Math.sin(am) + 5).toFixed(1)}" text-anchor="middle" font-size="13" fill="#ffffff" font-weight="700" font-family="-apple-system, sans-serif">!</text>`;
+  });
+  s += `<text x="${C}" y="${C - 4}" text-anchor="middle" font-size="15" font-weight="700" font-family="-apple-system, sans-serif" style="fill:var(--ink)">Stuhl-</text>
+    <text x="${C}" y="${C + 15}" text-anchor="middle" font-size="15" font-weight="700" font-family="-apple-system, sans-serif" style="fill:var(--ink)">farben</text></svg>`;
+  return s;
+}
+const dotSvg = (fill, size) => `<svg width="${size}" height="${size}" viewBox="0 0 20 20" style="flex:none;display:block" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="${fill}" stroke="#8a8178" stroke-opacity=".6" stroke-width="1"/></svg>`;
 function stoolScaleHtml(){
-  const badge = {ok:['✅', 'unbedenklich'], warn:['⚠️', 'abklären'], alert:['🚨', 'sofort zum Arzt']};
+  const row = 'display:flex;align-items:center;gap:10px;padding:7px 8px;margin-top:6px;border-radius:12px;';
   return `<div class="sscale"><div class="lbl" style="margin-top:14px">Farbskala Stuhlgang</div>
-    ${STOOL_SCALE.map(s => `<div class="ssrow ${s.lvl}"><span class="sw" style="background:${s.c}"></span>
-      <span class="sst"><b>${s.n}</b><small>${s.t}</small></span><span class="ssb">${badge[s.lvl][0]}<small>${badge[s.lvl][1]}</small></span></div>`).join('')}
+    ${stoolPieSvg()}
+    <div style="display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:center;font-size:13px;margin:6px 0 8px">
+      ${Object.values(STOOL_LVL).map(l => `<span style="display:inline-flex;align-items:center;gap:5px">${dotSvg(l.c, 14)}${l.t}</span>`).join('')}</div>
+    ${STOOL_SCALE.map((s, i) => `<div style="${row}border-left:4px solid ${STOOL_LVL[s.lvl].c}">
+      <span style="position:relative;flex:none;width:32px;height:32px">${dotSvg(s.c, 32)}
+        <b style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;color:${isLight(s.c) ? '#2a2622' : '#fff'}">${i + 1}</b></span>
+      <span style="flex:1;min-width:0;font-size:14px;line-height:1.35"><b${s.lvl === 'alert' ? ` style="color:${STOOL_LVL.alert.c}"` : ''}>${s.n}</b>
+        <small style="display:block;color:var(--muted);font-size:12.5px">${s.t}</small></span>
+      <span style="flex:none;font-size:18px">${STOOL_LVL[s.lvl].icon}</span></div>`).join('')}
     <div class="disc">Helle, weißliche oder graue Stühle können in den ersten Lebenswochen auf eine Gallengangsatresie hinweisen –
       diese Lebererkrankung muss sehr früh behandelt werden. Vergleiche im Zweifel mit der gedruckten Stuhlfarbkarte im gelben
       Kinder-Untersuchungsheft; Farben auf dem Bildschirm können abweichen.</div></div>`;
