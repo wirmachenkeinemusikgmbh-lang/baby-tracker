@@ -50,7 +50,9 @@ async function encodePhoto(draw){
   return {full: await full.arrayBuffer(), thumb: await thumbFrom(c)};
 }
 
-const photosSorted = () => (state.photos || []).slice().sort((a, b) => a.day < b.day ? -1 : a.day > b.day ? 1 : 0);
+// Foto-ID: Datum (erstes Profil, wie in älteren Versionen) bzw. Profil_Datum
+const photoId = day => state.current === 'main' ? day : state.current + '_' + day;
+const photosSorted = () => (state.photos || []).filter(mine).sort((a, b) => a.day < b.day ? -1 : a.day > b.day ? 1 : 0);
 const thumbUrls = new Map();
 async function thumbUrl(p){
   const c = thumbUrls.get(p.id); if (c && c.v === p.v) return c.url;
@@ -59,30 +61,32 @@ async function thumbUrl(p){
   const url = URL.createObjectURL(jpeg(rec.thumb)); thumbUrls.set(p.id, {v:p.v, url}); return url;
 }
 const dateLong = k => keyToDate(k).toLocaleDateString('de-DE', {day:'numeric', month:'long', year:'numeric'});
-const photoAge = k => state.birth ? ageText(keyToDate(k).getTime() + 12*3600e3) : '';
+const photoAge = k => curBaby().birth ? ageText(keyToDate(k).getTime() + 12*3600e3) : '';
 
 async function savePhoto(day, enc){
   const v = uid();
-  state.photos = (state.photos || []).filter(p => p.id !== day).concat({id:day, day, v});
-  await photoPutRec({id:day, v, full:enc.full, thumb:enc.thumb});
+  const id = photoId(day);
+  state.photos = (state.photos || []).filter(p => p.id !== id).concat({id, day, v, baby:state.current});
+  await photoPutRec({id, v, full:enc.full, thumb:enc.thumb});
   save(); render();
 }
 async function deletePhoto(day){
-  state.photos = (state.photos || []).filter(p => p.id !== day);
+  const id = photoId(day);
+  state.photos = (state.photos || []).filter(p => p.id !== id);
   save(); render();
-  await photoDelRec(day).catch(() => {});
+  await photoDelRec(id).catch(() => {});
 }
 
 /* --- Ansicht --- */
 function photoReminderHtml(){
-  if ((state.photos || []).some(p => p.id === todayKey())) return '';
+  if ((state.photos || []).some(p => p.id === photoId(todayKey()))) return '';
   return `<button class="note" id="photoRemind">📷 <span><b>Heute noch kein Foto</b> – jetzt fürs Tagebuch aufnehmen</span></button>`;
 }
 document.addEventListener('click', ev => { if (ev.target.closest('#photoRemind')) { showView('photos'); } });
 
 let photoRenderSeq = 0;
 async function renderPhotos(){
-  const list = photosSorted(), t = todayKey(), today = list.find(p => p.id === t);
+  const list = photosSorted(), t = todayKey(), today = list.find(p => p.day === t);
   const first = list[0];
   $('#photoHead').innerHTML = `
     <div class="phtoday">
@@ -128,7 +132,7 @@ function openPhotoDayPicker(){
     const a = ev.target.closest('[data-c]')?.dataset.c; if (!a) return;
     if (a === 'close') return closeSheet();
     const d = $('#pDay').value; if (!d) return;
-    if ((state.photos || []).some(p => p.id === d) && !confirm(`Für ${dateLong(d)} gibt es schon ein Foto. Ersetzen?`)) return;
+    if ((state.photos || []).some(p => p.id === photoId(d)) && !confirm(`Für ${dateLong(d)} gibt es schon ein Foto. Ersetzen?`)) return;
     closeSheet(); pickPhoto(d);
   };
 }
@@ -269,7 +273,7 @@ async function runTimelapse(list, opts){
     const blob = await renderTimelapse($('#tlC'), list, opts, p => { const el = $('#tlP'); if (el) el.value = p; }, () => cancelled || $('#sheet').hidden);
     if (!blob) return;
     const ext = blob.type.includes('mp4') ? 'mp4' : 'webm';
-    const name = `zeitraffer${state.name ? '_' + state.name.replace(/[^\wäöüÄÖÜß-]+/g, '') : ''}_${list[0].day}_bis_${list[list.length-1].day}.${ext}`;
+    const name = `zeitraffer${curBaby().name ? '_' + curBaby().name.replace(/[^\wäöüÄÖÜß-]+/g, '') : ''}_${list[0].day}_bis_${list[list.length-1].day}.${ext}`;
     const url = URL.createObjectURL(blob);
     openSheet(`<h3>🎬 Fertig!</h3>
       <video src="${url}" controls playsinline autoplay muted loop></video>
@@ -312,7 +316,7 @@ async function renderTimelapse(c, list, {fps, overlay, title}, onProgress, isCan
   const drawTitle = () => {
     ctx.fillStyle = '#2a2622'; ctx.fillRect(0, 0, S, S);
     ctx.fillStyle = '#fff4e6'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.font = font(700, S * 0.09); ctx.fillText(state.name || 'Unser Baby', S / 2, S * 0.44);
+    ctx.font = font(700, S * 0.09); ctx.fillText(curBaby().name || 'Unser Baby', S / 2, S * 0.44);
     ctx.font = font(500, S * 0.04); ctx.fillStyle = '#e7966f';
     ctx.fillText(`${keyToDate(list[0].day).toLocaleDateString('de-DE')} – ${keyToDate(list[list.length-1].day).toLocaleDateString('de-DE')}`, S / 2, S * 0.56);
   };
@@ -364,7 +368,7 @@ async function photoFlush(){
     photoSent[p.id] = p.v;
     const b = f.writeBatch(db);
     b.set(f.doc(db, 'photoData', p.id), {v:p.v, data: f.Bytes.fromUint8Array(new Uint8Array(rec.full))});
-    b.set(f.doc(db, 'photos', p.id), {id:p.id, day:p.day, v:p.v});
+    b.set(f.doc(db, 'photos', p.id), {id:p.id, day:p.day, v:p.v, baby:babyOf(p)});
     b.commit().catch(err => { delete photoSent[p.id]; photoSyncError(err); });
   }
   for (const id of dels){
@@ -377,7 +381,7 @@ async function photoFlush(){
 }
 function onPhotos(snap){
   const p = photoPending();
-  const map = new Map(snap.docs.map(d => { const x = d.data(); return [d.id, {id:d.id, day:x.day || d.id, v:x.v}]; }));
+  const map = new Map(snap.docs.map(d => { const x = d.data(); return [d.id, {id:d.id, day:x.day || d.id, v:x.v, baby:x.baby || 'main'}]; }));
   p.ups.forEach(x => map.set(x.id, x)); p.dels.forEach(id => map.delete(id));
   state.photos = [...map.values()];
   if (!snap.metadata.fromCache && !snap.metadata.hasPendingWrites){
@@ -399,10 +403,16 @@ async function syncPhotoBlobs(){
     const keys = new Set(await photoKeys());
     const want = new Set((state.photos || []).map(p => p.id));
     for (const k of keys) if (!want.has(k)) await photoDelRec(k);       // anderswo gelöscht
-    for (const p of photosSorted().reverse()){                          // neueste zuerst
+    const all = (state.photos || []).slice().sort((a, b) => a.day < b.day ? 1 : -1);   // alle Babys, neueste zuerst
+    let orphans = false;
+    for (const p of all){
       if (!sync.ready) break;
       const rec = keys.has(p.id) ? await photoRec(p.id) : null;
       if (rec && rec.v === p.v) continue;
+      // Eintrag ohne Bild, den auch der Server nicht kennt (z. B. Speicher geleert) → entfernen
+      if (!rec && base && base.photos && !(p.id in base.photos) && photoSent[p.id] !== p.v){
+        state.photos = state.photos.filter(x => x.id !== p.id); orphans = true; continue;
+      }
       const d = await f.getDoc(f.doc(db, 'photoData', p.id));
       if (!d.exists() || d.data().v !== p.v) continue;
       const full = d.data().data.toUint8Array().slice().buffer;
@@ -411,6 +421,7 @@ async function syncPhotoBlobs(){
       if (cur && cur.v === p.v) await photoPutRec({id:p.id, v:p.v, full, thumb});
       if (view === 'photos') renderPhotos();
     }
+    if (orphans){ localStorage.setItem(KEY, JSON.stringify(state)); setSyncStatus(); if (view === 'photos' || view === 'home') render(); }
   } catch(e){ console.warn('Fotos laden', e); }
   finally {
     blobSync.running = false;

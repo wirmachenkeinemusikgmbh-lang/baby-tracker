@@ -5,11 +5,11 @@
    Wachfenster sind verbreitete Faustregeln, keine medizinischen Grenzwerte. */
 
 function ageDays(ts){
-  if (!state.birth) return null;
-  return Math.round((keyToDate(dayKey(ts ?? Date.now())) - keyToDate(state.birth)) / 864e5);
+  if (!curBaby().birth) return null;
+  return Math.round((keyToDate(dayKey(ts ?? Date.now())) - keyToDate(curBaby().birth)) / 864e5);
 }
 function ageParts(ts){ // volle Kalendermonate + Resttage
-  const b = keyToDate(state.birth), d = keyToDate(dayKey(ts ?? Date.now()));
+  const b = keyToDate(curBaby().birth), d = keyToDate(dayKey(ts ?? Date.now()));
   let m = (d.getFullYear() - b.getFullYear()) * 12 + d.getMonth() - b.getMonth();
   const anchor = k => { const a = new Date(b); a.setMonth(b.getMonth() + k); return a; };
   if (anchor(m) > d) m--;
@@ -108,7 +108,7 @@ function adviceStats(){
 /* Warnzeichen beim Stuhl (letzte "hours" Stunden) */
 function stoolFlags(hours){
   const since = Date.now() - hours * 3600e3, days = ageDays();
-  const list = state.events.filter(e => e.type === 'diaper' && e.kind !== 'wet' && e.start >= since);
+  const list = state.events.filter(e => mine(e) && e.type === 'diaper' && e.kind !== 'wet' && e.start >= since);
   const out = [];
   if (list.some(e => e.color === 'pale')) out.push({lvl:'alert', text:'<b>Heller, weißlicher oder grauer Stuhl erfasst.</b> Bitte heute noch den Kinderarzt anrufen bzw. aufsuchen (Stuhlfarbkarte) – außerhalb der Sprechzeiten: ärztlicher Bereitschaftsdienst 116 117.'});
   if (list.some(e => e.color === 'red')) out.push({lvl:'alert', text:'<b>Rötlicher Stuhl erfasst.</b> Blut im Stuhl bitte zeitnah ärztlich abklären lassen.'});
@@ -118,7 +118,7 @@ function stoolFlags(hours){
 }
 function stoolAlert(e){
   if (!['pale', 'red', 'black'].includes(e.color)) return;
-  if (e.color === 'black' && state.birth && ageDays(e.start) < 5) return;
+  if (e.color === 'black' && curBaby().birth && ageDays(e.start) < 5) return;
   const f = stoolFlags(1)[0];
   if (f) setTimeout(() => alert(f.text.replace(/<[^>]+>/g, '')), 300);
 }
@@ -198,7 +198,7 @@ function adviceItems(cat, band, days, s){
 
 function adviceHtml(type){
   const cat = type === 'wake' ? 'sleep' : type;
-  if (!state.birth) return `<div class="panel"><h4>💡 Altersgerechte Tipps</h4>
+  if (!curBaby().birth) return `<div class="panel"><h4>💡 Altersgerechte Tipps</h4>
     <div class="muted">Trag das Geburtsdatum ein, dann bekommst du hier Tipps und Orientierungswerte passend zum Alter deines Babys.</div>
     <button class="btn wide" data-go="birth">Geburtsdatum eintragen</button></div>`;
   const days = ageDays();
