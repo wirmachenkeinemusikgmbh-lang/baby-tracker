@@ -532,12 +532,14 @@ function openDiaper(){
     ${kind && kind !== 'wet' ? `
       <div class="lbl">Konsistenz</div><div class="chips">${chips(STOOL_CONS, cons, 'cons')}</div>
       <div class="lbl">Farbe</div><div class="chips">${chips(STOOL_COLOR, color, 'color')}</div>
+      <button class="btn wide" data-cam="1">📷 Farbe per Foto bestimmen</button>
       <button class="btn primary wide" data-save="1">Speichern</button>` : '<div class="muted" style="margin-top:10px">Tippe auf „Nass“ zum direkten Speichern.</div>'}
     <button class="btn ghost wide" data-close="1">Abbrechen</button>`);
   draw();
   $('#sheet').onclick = ev => {
     const b = ev.target.closest('button'); if (!b) return;
     if (b.dataset.close) return closeSheet();
+    if (b.dataset.cam) return openStoolCam({kind, cons});
     if (b.dataset.kind){
       kind = b.dataset.kind;
       if (kind === 'wet'){ closeSheet(); return addEvent(newEvent('diaper', {kind}), 'Windel: nass'); }
@@ -1272,5 +1274,6 @@ document.addEventListener('DOMContentLoaded', () => { render(); initSync(); });
 <script src="photos.js"></script>
 <script src="growth.js"></script>
 <script src="features.js"></script>
+<script src="stoolcam.js"></script>
 </body>
 </html>

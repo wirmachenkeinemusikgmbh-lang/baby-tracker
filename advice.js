@@ -241,6 +241,7 @@ const dotSvg = (fill, size) => `<svg width="${size}" height="${size}" viewBox="0
 function stoolScaleHtml(){
   const row = 'display:flex;align-items:center;gap:10px;padding:7px 8px;margin-top:6px;border-radius:12px;';
   return `<div class="sscale"><div class="lbl" style="margin-top:14px">Farbskala Stuhlgang</div>
+    <button class="btn wide" data-stoolcam="1">📷 Stuhlfarbe per Foto prüfen</button>
     ${stoolPieSvg()}
     <div style="display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:center;font-size:13px;margin:6px 0 8px">
       ${Object.values(STOOL_LVL).map(l => `<span style="display:inline-flex;align-items:center;gap:5px">${dotSvg(l.c, 14)}${l.t}</span>`).join('')}</div>
