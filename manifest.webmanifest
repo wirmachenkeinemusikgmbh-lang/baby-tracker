@@ -1,7 +1,8 @@
 {
+  "id": "./",
   "name": "Baby-Tracker",
   "short_name": "Baby",
-  "description": "Schlaf, Nickerchen, Windeln und Stillen tracken",
+  "description": "Schlaf, Windeln, Füttern, Gewicht und Fotos deines Babys festhalten",
   "lang": "de",
   "start_url": "./",
   "scope": "./",
@@ -9,9 +10,22 @@
   "orientation": "portrait",
   "background_color": "#f7f4ef",
   "theme_color": "#f7f4ef",
+  "categories": ["health", "lifestyle", "parenting"],
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Nachtschlaf (einschlafen / aufwachen)", "short_name": "Nachtschlaf", "url": "./?quick=night",
+      "icons": [{ "src": "icons/sc-night.png", "sizes": "96x96", "type": "image/png" }] },
+    { "name": "Windel nass", "short_name": "Windel nass", "url": "./?quick=diaper_wet",
+      "icons": [{ "src": "icons/sc-wet.png", "sizes": "96x96", "type": "image/png" }] },
+    { "name": "Windel Stuhl", "short_name": "Windel Stuhl", "url": "./?quick=diaper_stool",
+      "icons": [{ "src": "icons/sc-stool.png", "sizes": "96x96", "type": "image/png" }] },
+    { "name": "Stillen (empfohlene Seite, Start / Stopp)", "short_name": "Stillen", "url": "./?quick=feed_auto",
+      "icons": [{ "src": "icons/sc-feed.png", "sizes": "96x96", "type": "image/png" }] },
+    { "name": "Nickerchen (Start / Stopp)", "short_name": "Nickerchen", "url": "./?quick=nap",
+      "icons": [{ "src": "icons/sc-nap.png", "sizes": "96x96", "type": "image/png" }] }
   ]
 }

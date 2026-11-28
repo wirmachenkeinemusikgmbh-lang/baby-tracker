@@ -1,0 +1,37 @@
+{
+  "packageId": "de.DEINNAME.babytracker",
+  "host": "wirmachenkeinemusikgmbh-lang.github.io",
+  "name": "Baby-Tracker",
+  "launcherName": "Baby",
+  "display": "standalone",
+  "orientation": "portrait",
+  "themeColor": "#F7F4EF",
+  "themeColorDark": "#100E0B",
+  "navigationColor": "#F7F4EF",
+  "navigationColorDark": "#100E0B",
+  "navigationDividerColor": "#E8E2DA",
+  "navigationDividerColorDark": "#332E27",
+  "backgroundColor": "#F7F4EF",
+  "enableNotifications": true,
+  "startUrl": "/baby-tracker/",
+  "iconUrl": "https://wirmachenkeinemusikgmbh-lang.github.io/baby-tracker/icons/icon-512.png",
+  "maskableIconUrl": "https://wirmachenkeinemusikgmbh-lang.github.io/baby-tracker/icons/icon-512.png",
+  "webManifestUrl": "https://wirmachenkeinemusikgmbh-lang.github.io/baby-tracker/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "signingKey": {
+    "path": "AUSSERHALB-DES-REPOS/baby-tracker-upload.jks",
+    "alias": "upload"
+  },
+  "shortcuts": [
+    { "name": "Nachtschlaf (einschlafen / aufwachen)", "shortName": "Nachtschlaf", "url": "/baby-tracker/?quick=night",
+      "chosenIconUrl": "https://wirmachenkeinemusikgmbh-lang.github.io/baby-tracker/icons/sc-night.png" },
+    { "name": "Windel nass", "shortName": "Windel nass", "url": "/baby-tracker/?quick=diaper_wet",
+      "chosenIconUrl": "https://wirmachenkeinemusikgmbh-lang.github.io/baby-tracker/icons/sc-wet.png" },
+    { "name": "Windel Stuhl", "shortName": "Windel Stuhl", "url": "/baby-tracker/?quick=diaper_stool",
+      "chosenIconUrl": "https://wirmachenkeinemusikgmbh-lang.github.io/baby-tracker/icons/sc-stool.png" },
+    { "name": "Stillen (Start / Stopp)", "shortName": "Stillen", "url": "/baby-tracker/?quick=feed_auto",
+      "chosenIconUrl": "https://wirmachenkeinemusikgmbh-lang.github.io/baby-tracker/icons/sc-feed.png" }
+  ]
+}

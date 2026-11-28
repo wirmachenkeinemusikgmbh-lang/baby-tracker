@@ -60,6 +60,7 @@ function switchBaby(id){
   state.current = id; localStorage.setItem(KEY, JSON.stringify(state));
   hideToast(); closeSheet(); render();
   toast(`${babyEmoji(curBaby())} ${curBaby().name || 'Baby'} ausgewählt`);
+  refreshQuickNotification();   // Mitteilung mit Knöpfen gilt für das gewählte Baby
 }
 function openProfiles(){
   openSheet(`<h3>Babys</h3>

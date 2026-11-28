@@ -281,6 +281,9 @@ textarea{min-height:120px;resize:vertical;line-height:1.4}
       <select id="babySex"><option value="">– nicht angegeben –</option><option value="f">Mädchen</option><option value="m">Junge</option></select></div>
     <button class="btn wide" id="manageProfiles">👶 Babys verwalten / weiteres Baby anlegen</button>
 
+    <h2>Schnellerfassung ohne App öffnen</h2>
+    <div id="quickBox"></div>
+
     <h2>Darstellung</h2>
     <div class="seg" id="themeSeg"></div>
 
@@ -959,7 +962,7 @@ function renderData(){
   if (document.activeElement !== $('#babyBirth')) $('#babyBirth').value = b.birth || '';
   $('#babySex').value = b.sex || '';
   $('#babyBirth').max = todayKey();
-  renderSync(); renderSettings();
+  renderSync(); renderSettings(); renderQuickBox();
   const ev = sorted();
   $('#countInfo').textContent = ev.length ? `${ev.length} Einträge seit ${new Date(ev[0].start).toLocaleDateString('de-DE')}` : 'Noch keine Einträge';
 }
@@ -1309,5 +1312,6 @@ document.addEventListener('DOMContentLoaded', () => { render(); initSync(); });
 <script src="growth.js"></script>
 <script src="features.js"></script>
 <script src="stoolcam.js"></script>
+<script src="quick.js"></script>
 </body>
 </html>

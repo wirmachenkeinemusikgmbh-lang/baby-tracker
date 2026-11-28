@@ -1,0 +1,13 @@
+# Signierschlüssel und Zugangsdaten für die Play-Store-Version – niemals ins öffentliche Repo
+*.jks
+*.keystore
+*.p12
+*.pem
+signing-key-info.txt
+keystore.properties
+# Build-Ausgaben der Android-Hülle (Bubblewrap / PWABuilder)
+playstore/android/
+playstore/build/
+*.apk
+*.aab
+*.idsig
