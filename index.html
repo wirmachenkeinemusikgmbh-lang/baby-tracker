@@ -230,10 +230,8 @@ textarea{min-height:120px;resize:vertical;line-height:1.4}
   <!-- Start -->
   <section id="v-home">
     <div class="grid" id="cards">
-      <div class="card" data-type="wake"><button class="statbtn" data-stat="wake" aria-label="Statistik">📊</button>
-        <div class="ic">🌅</div><div class="lb">Aufgewacht</div><div class="st" id="st-wake"></div></div>
-      <div class="card" data-type="sleep"><button class="statbtn" data-stat="sleep" aria-label="Statistik">📊</button>
-        <div class="ic">🌙</div><div class="lb">Eingeschlafen</div><div class="st" id="st-sleep"></div></div>
+      <div class="card wide" data-type="night"><button class="statbtn" data-stat="night" aria-label="Statistik">📊</button>
+        <div class="ic" id="ic-night">🌙</div><div class="lb" id="lb-night">Nachtschlaf</div><div class="st" id="st-night"></div></div>
       <div class="card" data-type="nap"><button class="statbtn" data-stat="nap" aria-label="Statistik">📊</button>
         <div class="ic">😴</div><div class="lb" id="lb-nap">Nickerchen</div><div class="st" id="st-nap"></div></div>
       <div class="card" data-type="diaper"><button class="statbtn" data-stat="diaper" aria-label="Statistik">📊</button>
@@ -339,7 +337,13 @@ const TYPES = {
   appt:   {label:'Termin',        icon:'📅'},
   custom: {label:'Eigene Kategorie', icon:'⭐'}
 };
-const STAT_TYPES = ['wake', 'sleep', 'nap', 'diaper', 'feed', 'weight'];
+const STAT_TYPES = ['night', 'nap', 'diaper', 'feed', 'weight'];
+const STAT_LABELS = {night:{label:'Nachtschlaf', icon:'🌙'}};
+// Nachtschlaf „läuft“, wenn der letzte Aufwach-/Einschlaf-Eintrag ein Einschlafen ist (höchstens 18 h her)
+function nightRunning(){
+  const l = sorted().filter(e => e.type === 'wake' || e.type === 'sleep').pop();
+  return l && l.type === 'sleep' && Date.now() - l.start < 18 * 3600e3 ? l : null;
+}
 const DIAPER_KIND  = {wet:'Nass', stool:'Stuhl', both:'Nass + Stuhl'};
 const DIAPER_ICON  = {wet:'💧', stool:'💩', both:'💧💩'};
 const STOOL_CONS   = {liquid:'Flüssig', soft:'Breiig', normal:'Normal', hard:'Fest / hart'};
@@ -507,11 +511,7 @@ $('#cards').addEventListener('click', ev => {
   if (sb){ statType = sb.dataset.stat; showView('stats'); return; }
   const card = ev.target.closest('.card'); if (!card) return;
   const t = card.dataset.type;
-  if (t === 'wake')  addEvent(newEvent('wake'),  'Aufgewacht um ' + fmtTime(Date.now()));
-  if (t === 'sleep'){
-    const r = running('nap'), s = newEvent('sleep');
-    act(() => { if (r) r.end = s.start; state.events.push(s); }, 'Eingeschlafen um ' + fmtTime(s.start) + ' – gute Nacht 🌙', s.id);
-  }
+  if (t === 'night') toggleNight();
   if (t === 'nap'){
     const r = running('nap');
     if (r) act(() => { r.end = Date.now(); }, 'Nickerchen beendet · ' + fmtDur(Date.now() - r.start), r.id);
@@ -523,6 +523,38 @@ $('#cards').addEventListener('click', ev => {
   if (t === 'note') openNote();
   if (t === 'appt') openAppointments();
 });
+
+/* Nachtschlaf: ein Knopf für Einschlafen und Aufwachen */
+function logWake(){
+  const w = newEvent('wake'), s = nightRunning();
+  addEvent(w, 'Guten Morgen ☀️ Aufgewacht um ' + fmtTime(w.start) + (s ? ' · Nachtschlaf ' + fmtDur(w.start - s.start) : ''));
+}
+function logSleep(){
+  const r = running('nap'), s = newEvent('sleep');
+  act(() => { if (r) r.end = s.start; state.events.push(s); }, 'Eingeschlafen um ' + fmtTime(s.start) + ' – gute Nacht 🌙', s.id);
+}
+function toggleNight(){
+  if (nightRunning()) return logWake();
+  const h = new Date().getHours();
+  // morgens ohne erfasstes Einschlafen: kurz nachfragen statt zu raten
+  if (h >= 4 && h < 12){
+    openSheet(`<h3>🌙 Nachtschlaf</h3>
+      <div class="hint">Für letzte Nacht ist kein Einschlafen erfasst. Was möchtest du speichern?</div>
+      <div class="choices">
+        <button class="choice suggest" data-n="wake">🌅<span>Aufgewacht</span><small>jetzt</small></button>
+        <button class="choice" data-n="sleep">🌙<span>Eingeschlafen</span><small>jetzt</small></button>
+      </div>
+      <button class="btn ghost wide" data-n="close">Abbrechen</button>`);
+    $('#sheet').onclick = ev => {
+      const a = ev.target.closest('[data-n]')?.dataset.n; if (!a) return;
+      closeSheet();
+      if (a === 'wake') logWake();
+      if (a === 'sleep') logSleep();
+    };
+    return;
+  }
+  logSleep();
+}
 
 function openDiaper(){
   let kind = null, cons = null, color = null;
@@ -712,11 +744,18 @@ function renderCards(){
   const today = ev.filter(e => dayKey(e.start) === tk);
   const lastOf = t => { const l = ev.filter(e => e.type === t); return l[l.length-1]; };
 
-  const w = today.filter(e => e.type === 'wake');
-  $('#st-wake').textContent = w.length ? 'Heute ' + fmtTime(w[0].start) : 'Heute noch nicht';
-
-  const s = lastOf('sleep');
-  $('#st-sleep').textContent = s ? `${dayLabel(dayKey(s.start))} ${fmtTime(s.start)}` : 'Noch kein Eintrag';
+  const ns = nightRunning();
+  document.querySelector('.card[data-type=night]').classList.toggle('running', !!ns);
+  $('#ic-night').textContent = ns ? '😴' : '🌙';
+  $('#lb-night').textContent = ns ? 'Nachtschlaf läuft' : 'Nachtschlaf';
+  if (ns) $('#st-night').textContent = `Eingeschlafen ${fmtTime(ns.start)} · ${fmtClock(now - ns.start)} · tippen = aufgewacht`;
+  else {
+    const w = today.filter(e => e.type === 'wake')[0], lw = lastOf('wake');
+    const lastNight = lw ? ev.filter(e => e.type === 'sleep' && e.start < lw.start && lw.start - e.start < 18 * 3600e3).pop() : null;
+    $('#st-night').textContent = w
+      ? `Heute aufgewacht ${fmtTime(w.start)}${lastNight ? ' · Nacht ' + fmtDur(w.start - lastNight.start) : ''} · tippen = eingeschlafen`
+      : 'Tippen = eingeschlafen · morgens: aufgewacht';
+  }
 
   const rn = running('nap');
   document.querySelector('.card[data-type=nap]').classList.toggle('running', !!rn);
@@ -764,7 +803,7 @@ function renderHistory(){
 }
 
 /* ---------- Statistik ---------- */
-let statType = 'wake', statRange = 7;
+let statType = 'night', statRange = 7;
 function lastDays(n){ const out = [], t = todayKey(); for (let i = n-1; i >= 0; i--) out.push(shiftDay(t, -i)); return out; }
 // Milchmahlzeiten (Stillen + Fläschchen mit Milch); Beikost und Wasser zählen nicht mit
 const isMilk = e => e.type === 'feed' && e.side !== 'solid' && e.food !== 'water';
@@ -816,9 +855,10 @@ function nights(ev){ // je Nacht: letztes Einschlafen + nächstes Aufwachen
 }
 
 function renderStats(){
-  if (statType.startsWith('c:') && !cats().some(c => 'c:' + c.id === statType)) statType = 'wake';
-  $('#statTypes').innerHTML = STAT_TYPES.map(k =>
-    `<button class="chip ${statType===k?'on':''}" data-st="${k}">${TYPES[k].icon} ${TYPES[k].label}</button>`).join('')
+  if (statType === 'wake' || statType === 'sleep') statType = 'night';
+  if (statType.startsWith('c:') && !cats().some(c => 'c:' + c.id === statType)) statType = 'night';
+  $('#statTypes').innerHTML = STAT_TYPES.map(k => { const t = STAT_LABELS[k] || TYPES[k];
+    return `<button class="chip ${statType===k?'on':''}" data-st="${k}">${t.icon} ${t.label}</button>`; }).join('')
     + cats().map(c => `<button class="chip ${statType==='c:'+c.id?'on':''}" data-st="c:${c.id}">${esc(c.icon || '⭐')} ${esc(c.name)}</button>`).join('');
   if (statType === 'weight' || statType.startsWith('c:')){
     $('#statRange').innerHTML = statType === 'weight' ? '' : [7,30,90].map(n => `<button class="${statRange===n?'on':''}" data-r="${n}">${n} Tage</button>`).join('');
@@ -836,24 +876,18 @@ function renderStats(){
   const per = (filter, val) => days.map(d => ev.filter(e => dayKey(e.start) === d && filter(e)).reduce((a,e) => a + val(e), 0));
   let html = '';
 
-  if (statType === 'wake'){
-    const map = {};
-    ev.filter(e => e.type === 'wake' && inR.has(dayKey(e.start))).forEach(e => { const k = dayKey(e.start); if (map[k] == null) map[k] = minOfDay(e.start); });
-    const v = Object.values(map), n = nights(ev);
+  if (statType === 'night'){
+    const n = nights(ev), bedMap = {}, dur = {}, wakeMap = {};
+    days.forEach(d => { if (n[d]){ let m = minOfDay(n[d].bed); if (m < 300) m += 1440; bedMap[d] = m; if (n[d].wake) dur[d] = n[d].wake - n[d].bed; } });
+    ev.filter(e => e.type === 'wake' && inR.has(dayKey(e.start))).forEach(e => { const k = dayKey(e.start); if (wakeMap[k] == null) wakeMap[k] = minOfDay(e.start); });
+    const bv = Object.values(bedMap), dv = Object.values(dur), wv = Object.values(wakeMap);
     const awake = days.map(d => { const w = ev.find(e => e.type === 'wake' && dayKey(e.start) === d); const b = n[d]; return w && b && b.bed > w.start ? b.bed - w.start : null; }).filter(x => x);
-    html = `<div class="tiles">${tile(v.length ? fmtMin(mean(v)) : null, 'Ø Aufwachzeit')}${tile(v.length ? fmtMin(Math.min(...v)) : null, 'Früheste')}
-      ${tile(v.length ? fmtMin(Math.max(...v)) : null, 'Späteste')}${tile(awake.length ? fmtHM(mean(awake)) + ' h' : null, 'Ø Tag (wach → Nacht)')}</div>
-      ${timeRows(days, map, 'Aufwachzeit pro Tag')}`;
-  }
-
-  if (statType === 'sleep'){
-    const n = nights(ev), map = {}, dur = {};
-    days.forEach(d => { if (n[d]){ let m = minOfDay(n[d].bed); if (m < 300) m += 1440; map[d] = m; if (n[d].wake) dur[d] = n[d].wake - n[d].bed; } });
-    const v = Object.values(map), dv = Object.values(dur);
-    html = `<div class="tiles">${tile(v.length ? fmtMin(mean(v)) : null, 'Ø Einschlafzeit')}${tile(dv.length ? fmtHM(mean(dv)) + ' h' : null, 'Ø Nachtschlaf')}
-      ${tile(v.length ? fmtMin(Math.min(...v)) : null, 'Früheste')}${tile(v.length ? fmtMin(Math.max(...v)) : null, 'Späteste')}</div>
+    html = `<div class="tiles">${tile(dv.length ? fmtHM(mean(dv)) + ' h' : null, 'Ø Nachtschlaf')}${tile(awake.length ? fmtHM(mean(awake)) + ' h' : null, 'Ø Tag (wach → Nacht)')}
+      ${tile(bv.length ? fmtMin(mean(bv)) : null, 'Ø Einschlafzeit')}${tile(wv.length ? fmtMin(mean(wv)) : null, 'Ø Aufwachzeit')}
+      ${tile(dv.length ? fmtHM(Math.max(...dv)) + ' h' : null, 'Längste Nacht')}${tile(dv.length ? fmtHM(Math.min(...dv)) + ' h' : null, 'Kürzeste Nacht')}</div>
       ${bars(days, days.map(d => dur[d] || 0), fmtHM, 'Nachtschlaf (Einschlafen → Aufwachen)')}
-      ${timeRows(days, map, 'Einschlafzeit pro Abend')}
+      ${timeRows(days, bedMap, 'Einschlafzeit pro Abend')}
+      ${timeRows(days, wakeMap, 'Aufwachzeit pro Morgen')}
       <div class="muted" style="margin-top:8px">Die Nacht wird dem Abend zugeordnet, an dem das Baby eingeschlafen ist.</div>`;
   }
 

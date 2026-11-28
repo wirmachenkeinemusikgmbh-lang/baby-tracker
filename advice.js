@@ -256,7 +256,7 @@ function stoolScaleHtml(){
 }
 
 function adviceHtml(type){
-  const cat = type === 'wake' ? 'sleep' : type;
+  const cat = type === 'wake' || type === 'night' ? 'sleep' : type;
   if (!curBaby().birth) return `<div class="panel"><h4>💡 Altersgerechte Tipps</h4>
     <div class="muted">Trag das Geburtsdatum ein, dann bekommst du hier Tipps und Orientierungswerte passend zum Alter deines Babys.</div>
     <button class="btn wide" data-go="birth">Geburtsdatum eintragen</button>
