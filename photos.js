@@ -32,7 +32,7 @@ function loadImg(blob){
   return new Promise((res, rej) => {
     const url = URL.createObjectURL(blob), img = new Image();
     img.onload = () => { URL.revokeObjectURL(url); res(img); };
-    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('Bild konnte nicht gelesen werden')); };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error(t('Bild konnte nicht gelesen werden'))); };
     img.src = url;
   });
 }
@@ -60,7 +60,7 @@ async function thumbUrl(p){
   if (c) URL.revokeObjectURL(c.url);
   const url = URL.createObjectURL(jpeg(rec.thumb)); thumbUrls.set(p.id, {v:p.v, url}); return url;
 }
-const dateLong = k => keyToDate(k).toLocaleDateString('de-DE', {day:'numeric', month:'long', year:'numeric'});
+const dateLong = k => fmtDate(keyToDate(k), {day:'numeric', month:'long', year:'numeric'});
 const photoAge = k => curBaby().birth ? ageText(keyToDate(k).getTime() + 12*3600e3) : '';
 
 async function savePhoto(day, enc){
@@ -80,24 +80,24 @@ async function deletePhoto(day){
 /* --- Ansicht --- */
 function photoReminderHtml(){
   if ((state.photos || []).some(p => p.id === photoId(todayKey()))) return '';
-  return `<button class="note" id="photoRemind">📷 <span><b>Heute noch kein Foto</b> – jetzt fürs Tagebuch aufnehmen</span></button>`;
+  return `<button class="note" id="photoRemind">📷 <span>${t('<b>Heute noch kein Foto</b> – jetzt fürs Tagebuch aufnehmen')}</span></button>`;
 }
 document.addEventListener('click', ev => { if (ev.target.closest('#photoRemind')) { showView('photos'); } });
 
 let photoRenderSeq = 0;
 async function renderPhotos(){
-  const list = photosSorted(), t = todayKey(), today = list.find(p => p.day === t);
+  const list = photosSorted(), tk = todayKey(), today = list.find(p => p.day === tk);
   const first = list[0];
   $('#photoHead').innerHTML = `
     <div class="phtoday">
-      ${today ? `<img id="phTodayImg" alt="Foto von heute">
-        <div class="muted" style="margin-top:8px">✅ Foto von heute gespeichert${photoAge(t) ? ' · ' + esc(photoAge(t)) : ''}</div>
-        <button class="btn wide" data-p="replace">Foto von heute ersetzen</button>`
-      : `<button class="btn primary wide" data-p="today" style="margin-top:0">📷 Foto von heute aufnehmen</button>`}
-      <button class="btn ghost wide" data-p="other">＋ Foto für einen anderen Tag</button>
+      ${today ? `<img id="phTodayImg" alt="${t('Foto von heute')}">
+        <div class="muted" style="margin-top:8px">✅ ${t('Foto von heute gespeichert')}${photoAge(tk) ? ' · ' + esc(photoAge(tk)) : ''}</div>
+        <button class="btn wide" data-p="replace">${t('Foto von heute ersetzen')}</button>`
+      : `<button class="btn primary wide" data-p="today" style="margin-top:0">📷 ${t('Foto von heute aufnehmen')}</button>`}
+      <button class="btn ghost wide" data-p="other">＋ ${t('Foto für einen anderen Tag')}</button>
     </div>
-    <button class="btn wide ${list.length >= 2 ? 'primary' : ''}" data-p="timelapse">🎬 Zeitraffer erstellen</button>
-    <div class="muted" style="margin-top:10px">${list.length ? `${list.length} Foto${list.length > 1 ? 's' : ''} seit ${dateLong(first.day)}` : 'Noch keine Fotos – am besten jeden Tag ungefähr gleich fotografieren (gleiche Stelle, gleiches Licht).'}</div>`;
+    <button class="btn wide ${list.length >= 2 ? 'primary' : ''}" data-p="timelapse">🎬 ${t('Zeitraffer erstellen')}</button>
+    <div class="muted" style="margin-top:10px">${list.length ? t('{n} seit {date}', {n:unit(list.length, 'photo'), date:dateLong(first.day)}) : t('Noch keine Fotos – am besten jeden Tag ungefähr gleich fotografieren (gleiche Stelle, gleiches Licht).')}</div>`;
   const seq = ++photoRenderSeq;
   $('#photoGrid').innerHTML = list.slice().reverse().map(p => `<button class="ph" data-pid="${p.id}"><img alt=""><span>${dayShort(p.day)}${keyToDate(p.day).getFullYear() !== new Date().getFullYear() ? keyToDate(p.day).getMonth()+1 + '.' + keyToDate(p.day).getFullYear() : ''}</span></button>`).join('');
   if (today){ const u = await thumbUrl(today); if (seq === photoRenderSeq && u && $('#phTodayImg')) $('#phTodayImg').src = u; }
@@ -121,18 +121,18 @@ function pickPhoto(day){ pickDay = day; const f = $('#photoFile'); f.value = '';
 $('#photoFile').onchange = async ev => {
   const file = ev.target.files[0]; if (!file) return;
   try { openCrop(await loadImg(file), pickDay); }
-  catch(e){ alert('Das Foto konnte nicht geöffnet werden. Bitte ein anderes Bild (JPEG/PNG) wählen.'); }
+  catch(e){ alert(t('Das Foto konnte nicht geöffnet werden. Bitte ein anderes Bild (JPEG/PNG) wählen.')); }
 };
 function openPhotoDayPicker(){
-  openSheet(`<h3>Foto für einen anderen Tag</h3>
-    <div class="field"><label for="pDay">Tag</label><input type="date" id="pDay" value="${shiftDay(todayKey(), -1)}" max="${todayKey()}"></div>
-    <button class="btn primary wide" data-c="pick">Foto auswählen</button>
-    <button class="btn ghost wide" data-c="close">Abbrechen</button>`);
+  openSheet(`<h3>${t('Foto für einen anderen Tag')}</h3>
+    <div class="field"><label for="pDay">${t('Tag')}</label><input type="date" id="pDay" value="${shiftDay(todayKey(), -1)}" max="${todayKey()}"></div>
+    <button class="btn primary wide" data-c="pick">${t('Foto auswählen')}</button>
+    <button class="btn ghost wide" data-c="close">${t('Abbrechen')}</button>`);
   $('#sheet').onclick = ev => {
     const a = ev.target.closest('[data-c]')?.dataset.c; if (!a) return;
     if (a === 'close') return closeSheet();
     const d = $('#pDay').value; if (!d) return;
-    if ((state.photos || []).some(p => p.id === photoId(d)) && !confirm(`Für ${dateLong(d)} gibt es schon ein Foto. Ersetzen?`)) return;
+    if ((state.photos || []).some(p => p.id === photoId(d)) && !confirm(t('Für {date} gibt es schon ein Foto. Ersetzen?', {date:dateLong(d)}))) return;
     closeSheet(); pickPhoto(d);
   };
 }
@@ -142,26 +142,26 @@ async function openPhotoDetail(id){
   openSheet(`<h3>${dateLong(p.day)}</h3>
     <img class="bigimg" id="phBig" alt="">
     <div class="muted" style="margin-top:8px">${esc(photoAge(p.day))}</div>
-    <button class="btn primary wide" data-c="share">Teilen / Sichern</button>
-    <button class="btn wide" data-c="replace">Ersetzen</button>
-    <button class="btn wide danger" data-c="del">Löschen</button>
-    <button class="btn ghost wide" data-c="close">Schließen</button>`);
+    <button class="btn primary wide" data-c="share">${t('Teilen / Sichern')}</button>
+    <button class="btn wide" data-c="replace">${t('Ersetzen')}</button>
+    <button class="btn wide danger" data-c="del">${t('Löschen')}</button>
+    <button class="btn ghost wide" data-c="close">${t('Schließen')}</button>`);
   const rec = await photoRec(id);
   let url = null;
   if (rec && rec.v === p.v){ url = URL.createObjectURL(jpeg(rec.full)); $('#phBig').src = url; }
-  else $('#phBig').alt = 'Wird geladen …';
+  else $('#phBig').alt = t('Wird geladen …');
   $('#sheet').onclick = async ev => {
     const a = ev.target.closest('[data-c]')?.dataset.c; if (!a) return;
     if (a === 'share'){
-      if (!rec) return alert('Das Foto wird noch geladen.');
+      if (!rec) return alert(t('Das Foto wird noch geladen.'));
       return shareFile(`baby_${p.day}.jpg`, jpeg(rec.full), 'image/jpeg');
     }
     if (url) URL.revokeObjectURL(url);
     if (a === 'close') return closeSheet();
     if (a === 'replace'){ closeSheet(); return pickPhoto(p.day); }
     if (a === 'del'){
-      if (!confirm(`Foto vom ${dateLong(p.day)} löschen?` + (sync.ready ? ' Es wird auf allen Geräten gelöscht.' : ''))) return;
-      closeSheet(); await deletePhoto(p.day); toast('Foto gelöscht');
+      if (!confirm(t('Foto vom {date} löschen?', {date:dateLong(p.day)}) + (sync.ready ? ' ' + t('Es wird auf allen Geräten gelöscht.') : ''))) return;
+      closeSheet(); await deletePhoto(p.day); toast(t('Foto gelöscht'));
     }
   };
 }
@@ -174,13 +174,13 @@ async function openCrop(img, day){
   let showGhost = !!ghost, zoom = 1;
   const iw = img.naturalWidth, ih = img.naturalHeight, baseSide = Math.min(iw, ih);
   let cx = iw / 2, cy = ih / 2;
-  openSheet(`<h3>📷 ${day === todayKey() ? 'Foto von heute' : dateLong(day)}</h3>
+  openSheet(`<h3>📷 ${day === todayKey() ? t('Foto von heute') : dateLong(day)}</h3>
     <canvas id="cropC"></canvas>
-    <div class="muted" style="margin:8px 2px">Mit einem Finger verschieben, mit zwei Fingern oder dem Regler zoomen.${ghost ? ' Das blasse Bild ist das vorige Foto – richte dein Baby daran aus, dann wird der Zeitraffer ruhiger.' : ''}</div>
+    <div class="muted" style="margin:8px 2px">${t('Mit einem Finger verschieben, mit zwei Fingern oder dem Regler zoomen.')}${ghost ? ' ' + t('Das blasse Bild ist das vorige Foto – richte dein Baby daran aus, dann wird der Zeitraffer ruhiger.') : ''}</div>
     <input type="range" id="cropZoom" min="1" max="4" step="0.01" value="1" style="padding:0;border:0;background:none">
-    ${ghost ? '<button class="btn wide" data-c="ghost">Vorheriges Foto ausblenden</button>' : ''}
-    <button class="btn primary wide" data-c="save">Speichern</button>
-    <button class="btn ghost wide" data-c="close">Abbrechen</button>`);
+    ${ghost ? `<button class="btn wide" data-c="ghost">${t('Vorheriges Foto ausblenden')}</button>` : ''}
+    <button class="btn primary wide" data-c="save">${t('Speichern')}</button>
+    <button class="btn ghost wide" data-c="close">${t('Abbrechen')}</button>`);
   const c = $('#cropC'), S = Math.round(c.clientWidth * (window.devicePixelRatio || 1)); c.width = c.height = S;
   const clamp = () => { const side = baseSide / zoom; cx = Math.min(Math.max(cx, side/2), iw - side/2); cy = Math.min(Math.max(cy, side/2), ih - side/2); };
   const paint = (ctx, size, withGhost) => {
@@ -211,11 +211,11 @@ async function openCrop(img, day){
   $('#sheet').onclick = async ev => {
     const b = ev.target.closest('[data-c]'), a = b?.dataset.c; if (!a) return;
     if (a === 'close') return closeSheet();
-    if (a === 'ghost'){ showGhost = !showGhost; b.textContent = showGhost ? 'Vorheriges Foto ausblenden' : 'Vorheriges Foto einblenden'; return draw(); }
+    if (a === 'ghost'){ showGhost = !showGhost; b.textContent = showGhost ? t('Vorheriges Foto ausblenden') : t('Vorheriges Foto einblenden'); return draw(); }
     if (a === 'save'){
-      b.disabled = true; b.textContent = 'Speichern …';
-      try { await savePhoto(day, await encodePhoto((ctx, size) => paint(ctx, size, false))); closeSheet(); toast('Foto gespeichert 📷'); }
-      catch(e){ console.warn(e); b.disabled = false; b.textContent = 'Speichern'; alert('Speichern fehlgeschlagen – ist der Speicher voll?'); }
+      b.disabled = true; b.textContent = t('Speichern …');
+      try { await savePhoto(day, await encodePhoto((ctx, size) => paint(ctx, size, false))); closeSheet(); toast(t('Foto gespeichert 📷')); }
+      catch(e){ console.warn(e); b.disabled = false; b.textContent = t('Speichern'); alert(t('Speichern fehlgeschlagen – ist der Speicher voll?')); }
     }
   };
 }
@@ -227,25 +227,25 @@ function videoMime(){
 }
 function openTimelapse(){
   const all = photosSorted();
-  if (all.length < 2) return alert('Für einen Zeitraffer brauchst du mindestens 2 Fotos.');
-  if (!videoMime()) return alert('Dieser Browser kann leider keine Videos erzeugen. Bitte iOS bzw. Chrome aktualisieren.');
+  if (all.length < 2) return alert(t('Für einen Zeitraffer brauchst du mindestens 2 Fotos.'));
+  if (!videoMime()) return alert(t('Dieser Browser kann leider keine Videos erzeugen. Bitte iOS bzw. Chrome aktualisieren.'));
   let from = all[0].day, to = all[all.length - 1].day, overlay = true, title = true;
   let fps = all.length > 150 ? 10 : all.length > 50 ? 6 : all.length > 15 ? 4 : 2;
   const pick = () => all.filter(p => p.day >= from && p.day <= to);
   const draw = () => {
     const n = pick().length, secs = n / fps + (title ? 1.5 : 0) + 1.5;
-    openSheet(`<h3>🎬 Zeitraffer</h3>
-      <div class="lbl">Zeitraum</div>
+    openSheet(`<h3>🎬 ${t('Zeitraffer')}</h3>
+      <div class="lbl">${t('Zeitraum')}</div>
       <div class="btnrow"><input type="date" id="tlFrom" value="${from}" min="${all[0].day}" max="${all[all.length-1].day}">
         <input type="date" id="tlTo" value="${to}" min="${all[0].day}" max="${all[all.length-1].day}"></div>
-      <div class="lbl">Geschwindigkeit</div>
-      <div class="chips">${[2, 4, 6, 10, 15].map(k => `<button class="chip ${fps === k ? 'on' : ''}" data-fps="${k}">${k} Fotos/s</button>`).join('')}</div>
-      <div class="lbl">Einblendungen</div>
-      <div class="chips"><button class="chip ${overlay ? 'on' : ''}" data-t="overlay">Datum &amp; Alter</button>
-        <button class="chip ${title ? 'on' : ''}" data-t="title">Titel am Anfang</button></div>
-      <div class="hint" style="margin-top:14px">${n} Fotos → Video mit ca. ${Math.round(secs)} Sekunden. Das Erstellen dauert genauso lange – App so lange geöffnet lassen.</div>
-      <button class="btn primary wide" data-c="go" ${n < 2 ? 'disabled' : ''}>Video erstellen</button>
-      <button class="btn ghost wide" data-c="close">Abbrechen</button>`);
+      <div class="lbl">${t('Geschwindigkeit')}</div>
+      <div class="chips">${[2, 4, 6, 10, 15].map(k => `<button class="chip ${fps === k ? 'on' : ''}" data-fps="${k}">${t('{n} Fotos/s', {n:k})}</button>`).join('')}</div>
+      <div class="lbl">${t('Einblendungen')}</div>
+      <div class="chips"><button class="chip ${overlay ? 'on' : ''}" data-t="overlay">${t('Datum & Alter')}</button>
+        <button class="chip ${title ? 'on' : ''}" data-t="title">${t('Titel am Anfang')}</button></div>
+      <div class="hint" style="margin-top:14px">${t('{n} → Video mit ca. {s} Sekunden. Das Erstellen dauert genauso lange – App so lange geöffnet lassen.', {n:unit(n, 'photo'), s:Math.round(secs)})}</div>
+      <button class="btn primary wide" data-c="go" ${n < 2 ? 'disabled' : ''}>${t('Video erstellen')}</button>
+      <button class="btn ghost wide" data-c="close">${t('Abbrechen')}</button>`);
     $('#tlFrom').onchange = e => { from = e.target.value || all[0].day; draw(); };
     $('#tlTo').onchange = e => { to = e.target.value || all[all.length-1].day; draw(); };
   };
@@ -262,24 +262,24 @@ function openTimelapse(){
 
 async function runTimelapse(list, opts){
   let cancelled = false, lock = null;
-  openSheet(`<h3>🎬 Video wird erstellt …</h3>
+  openSheet(`<h3>🎬 ${t('Video wird erstellt …')}</h3>
     <canvas id="tlC"></canvas>
     <progress id="tlP" max="1" value="0"></progress>
-    <div class="muted" style="margin-top:6px">Bitte die App geöffnet und den Bildschirm an lassen.</div>
-    <button class="btn ghost wide" data-c="cancel">Abbrechen</button>`);
+    <div class="muted" style="margin-top:6px">${t('Bitte die App geöffnet und den Bildschirm an lassen.')}</div>
+    <button class="btn ghost wide" data-c="cancel">${t('Abbrechen')}</button>`);
   $('#sheet').onclick = ev => { if (ev.target.closest('[data-c=cancel]')){ cancelled = true; closeSheet(); } };
   try { lock = await navigator.wakeLock?.request('screen'); } catch(e){}
   try {
     const blob = await renderTimelapse($('#tlC'), list, opts, p => { const el = $('#tlP'); if (el) el.value = p; }, () => cancelled || $('#sheet').hidden);
     if (!blob) return;
     const ext = blob.type.includes('mp4') ? 'mp4' : 'webm';
-    const name = `zeitraffer${curBaby().name ? '_' + curBaby().name.replace(/[^\wäöüÄÖÜß-]+/g, '') : ''}_${list[0].day}_bis_${list[list.length-1].day}.${ext}`;
+    const name = `${t('zeitraffer')}${curBaby().name ? '_' + safeName(curBaby().name) : ''}_${list[0].day}_${list[list.length-1].day}.${ext}`;
     const url = URL.createObjectURL(blob);
-    openSheet(`<h3>🎬 Fertig!</h3>
+    openSheet(`<h3>🎬 ${t('Fertig!')}</h3>
       <video src="${url}" controls playsinline autoplay muted loop></video>
-      <div class="muted" style="margin-top:6px">${list.length} Fotos · ${(blob.size / 1048576).toFixed(1).replace('.', ',')} MB</div>
-      <button class="btn primary wide" data-c="share">Teilen / Video sichern</button>
-      <button class="btn ghost wide" data-c="close">Schließen</button>`);
+      <div class="muted" style="margin-top:6px">${unit(list.length, 'photo')} · ${fmtNum(blob.size / 1048576)} MB</div>
+      <button class="btn primary wide" data-c="share">${t('Teilen / Video sichern')}</button>
+      <button class="btn ghost wide" data-c="close">${t('Schließen')}</button>`);
     $('#sheet').onclick = ev => {
       const a = ev.target.closest('[data-c]')?.dataset.c; if (!a) return;
       if (a === 'share') return shareFile(name, blob, blob.type);
@@ -287,7 +287,7 @@ async function runTimelapse(list, opts){
     };
   } catch(e){
     console.warn(e);
-    if (!cancelled) openSheet(`<h3>Das hat nicht geklappt</h3><div class="hint">${esc(e.message || e)}</div><button class="btn wide" data-c="close">Schließen</button>`);
+    if (!cancelled) openSheet(`<h3>${t('Das hat nicht geklappt')}</h3><div class="hint">${esc(e.message || e)}</div><button class="btn wide" data-c="close">${t('Schließen')}</button>`);
     $('#sheet').onclick = ev => { if (ev.target.closest('[data-c]')) closeSheet(); };
   } finally { try { lock && lock.release(); } catch(e){} }
 }
@@ -310,15 +310,15 @@ async function renderTimelapse(c, list, {fps, overlay, title}, onProgress, isCan
     g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.55)');
     ctx.fillStyle = g; ctx.fillRect(0, S - h, S, h);
     ctx.fillStyle = '#fff'; ctx.textBaseline = 'alphabetic';
-    ctx.font = font(600, S * 0.042); ctx.textAlign = 'left'; ctx.fillText(keyToDate(p.day).toLocaleDateString('de-DE'), S * 0.05, S * 0.95);
+    ctx.font = font(600, S * 0.042); ctx.direction = 'ltr'; ctx.textAlign = 'left'; ctx.fillText(fmtDate(keyToDate(p.day)), S * 0.05, S * 0.95);
     const age = photoAge(p.day); if (age){ ctx.textAlign = 'right'; ctx.fillText(age, S * 0.95, S * 0.95); }
   };
   const drawTitle = () => {
     ctx.fillStyle = '#2a2622'; ctx.fillRect(0, 0, S, S);
     ctx.fillStyle = '#fff4e6'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.font = font(700, S * 0.09); ctx.fillText(curBaby().name || 'Unser Baby', S / 2, S * 0.44);
+    ctx.font = font(700, S * 0.09); ctx.fillText(curBaby().name || t('Unser Baby'), S / 2, S * 0.44);
     ctx.font = font(500, S * 0.04); ctx.fillStyle = '#e7966f';
-    ctx.fillText(`${keyToDate(list[0].day).toLocaleDateString('de-DE')} – ${keyToDate(list[list.length-1].day).toLocaleDateString('de-DE')}`, S / 2, S * 0.56);
+    ctx.fillText(`${fmtDate(keyToDate(list[0].day))} – ${fmtDate(keyToDate(list[list.length-1].day))}`, S / 2, S * 0.56);
   };
   rec.start(1000);
   if (title) await hold(1500, drawTitle);
@@ -347,8 +347,8 @@ async function renderTimelapse(c, list, {fps, overlay, title}, onProgress, isCan
 function photoSyncError(err){
   console.warn('Foto-Sync', err);
   sync.photoErr = err && err.code === 'permission-denied'
-    ? 'Einträge werden synchronisiert, Fotos noch nicht: Die Firestore-Regeln müssen für Fotos erweitert werden.'
-    : 'Foto-Sync-Fehler: ' + ((err && (err.code || err.message)) || err);
+    ? t('Einträge werden synchronisiert, Fotos noch nicht: Die Firestore-Regeln müssen für Fotos erweitert werden.')
+    : t('Foto-Sync-Fehler: {x}', {x:(err && (err.code || err.message)) || err});
   setSyncStatus();
 }
 function photoPending(){

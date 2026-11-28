@@ -1,7 +1,8 @@
 // Service Worker: macht die App offline nutzbar.
 // Erst Netzwerk (damit Updates sofort ankommen), bei fehlender Verbindung aus dem Cache.
-const CACHE = 'babytracker-v11';
-const FILES = ['./', 'index.html', 'advice.js', 'photos.js', 'growth.js', 'features.js', 'stoolcam.js', 'quick.js', 'manifest.webmanifest',
+const CACHE = 'babytracker-v12';
+const FILES = ['./', 'index.html', 'i18n.js', 'app.js', 'advice.js', 'photos.js', 'growth.js', 'features.js', 'stoolcam.js', 'quick.js', 'manifest.webmanifest',
+  'lang/en.js', 'lang/es.js', 'lang/tr.js', 'lang/pl.js', 'lang/ru.js', 'lang/uk.js', 'lang/ar.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png', 'icons/badge-96.png'];
 
 /* ---------- Schnellerfassung über die Mitteilung (Android) ----------
@@ -32,7 +33,8 @@ self.addEventListener('notificationclick', e => {
     await quickAdd({id: ts.toString(36) + Math.random().toString(36).slice(2, 6), action, ts, baby: data.baby});
     const hm = String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0');
     await self.registration.showNotification(n.title, {
-      body: `✓ ${QUICK_TXT[action] || action} gespeichert (${hm}) · ${data.name || 'Baby'}`,
+      // Texte kommen in der Sprache der App aus data (siehe quick.js), Deutsch als Rückfall
+      body: `✓ ${(data.labels && data.labels[action]) || QUICK_TXT[action] || action} ${data.saved || 'gespeichert'} (${hm}) · ${data.name || 'Baby'}`,
       tag:'quick', renotify:false, silent:true, requireInteraction:true,
       icon:'icons/icon-192.png', badge:'icons/badge-96.png', actions:n.actions, data
     });

@@ -56,7 +56,7 @@ function growthInfo(){
   return {pts, last, perWeek, forecast, zRef, trend, sex};
 }
 
-const kgTxt = kg => kg.toLocaleString('de-DE', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' kg';
+const kgTxt = kg => kg.toLocaleString(LOCALE, {minimumFractionDigits:2, maximumFractionDigits:2}) + ' kg';
 const pctTxt = p => p < 1 ? '< P1' : p > 99 ? '> P99' : 'P' + Math.round(p);
 
 /* Typische Zunahme (Orientierung, WHO-Medianwerte gerundet) in g/Woche */
@@ -78,7 +78,7 @@ function weightChartSvg(g){
   if (sex) for (let m = 0; m <= xMax; m += 0.5){ const l = lmsAt(sex, m); kgs.push(kgOf(-1.881, l), kgOf(1.881, l)); }
   const yMin = Math.max(0, Math.floor(Math.min(...kgs) - 0.5)), yMax = Math.ceil(Math.max(...kgs) + 0.5);
   const X = m => pl + (m / xMax) * (W - pl - pr), Y = kg => pt + (1 - (kg - yMin) / (yMax - yMin)) * (H - pt - pb);
-  let svg = `<svg class="wchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Gewichtskurve">`;
+  let svg = `<svg class="wchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${t('Gewichtskurve')}" style="direction:ltr">`;
   // Achsen/Raster
   const yStep = yMax - yMin > 8 ? 2 : 1;
   for (let kg = yMin; kg <= yMax; kg += yStep) svg += `<line x1="${pl}" x2="${W - pr}" y1="${Y(kg)}" y2="${Y(kg)}" stroke="var(--line)" stroke-width="1"/><text x="${pl - 6}" y="${Y(kg) + 4}" font-size="10" text-anchor="end" fill="var(--muted)">${kg}</text>`;
@@ -108,44 +108,46 @@ function weightChartSvg(g){
 
 function weightStatsHtml(){
   const b = curBaby(), g = growthInfo();
-  const addBtn = '<button class="btn primary wide" data-weight-add="1">⚖️ Gewicht eintragen</button>';
-  if (!g.pts.length) return `<div class="panel"><div class="empty">Noch kein Gewicht erfasst.</div>${addBtn}</div>`;
+  const addBtn = `<button class="btn primary wide" data-weight-add="1">⚖️ ${t('Gewicht eintragen')}</button>`;
+  if (!g.pts.length) return `<div class="panel"><div class="empty">${t('Noch kein Gewicht erfasst.')}</div>${addBtn}</div>`;
   const last = g.last, days = ageDays();
   const tg = days != null ? typicalGain(days) : null;
   let html = `<div class="tiles">
-    ${tile(kgTxt(last.kg), 'Aktuell · ' + dayLabel(dayKey(last.e.start)))}
-    ${tile(last.pct != null ? pctTxt(last.pct) : null, 'WHO-Perzentile')}
-    ${tile(g.perWeek != null ? (g.perWeek >= 0 ? '+' : '') + Math.round(g.perWeek) + ' g' : null, 'Zunahme / Woche (4 Wo.)')}
-    ${tile(g.forecast[0] ? kgTxt(g.forecast[0].kg) : g.trend[1] ? kgTxt(g.trend[1].kg) : null, g.forecast[0] ? 'Prognose in 1 Monat' : 'Trend in 4 Wochen')}</div>`;
-  if (!b.birth || !b.sex) html += `<div class="hint" style="margin-top:12px">Für WHO-Perzentilen, Kurve und Prognose bitte unter <b>Daten</b> Geburtsdatum und Geschlecht eintragen.</div>`;
-  if (b.birth) html += `<div class="panel"><h4>Gewichtskurve${b.sex ? ' mit WHO-Perzentilen' : ''}</h4>${weightChartSvg(g)}
-    <div class="disc">${b.sex ? 'Flächen: 3.–97. und 15.–85. Perzentile, gepunktet: Median (50.). ' : ''}Gestrichelt: Prognose. X-Achse: Alter in Monaten, Y-Achse: kg.</div></div>`;
+    ${tile(kgTxt(last.kg), t('Aktuell') + ' · ' + dayLabel(dayKey(last.e.start)))}
+    ${tile(last.pct != null ? pctTxt(last.pct) : null, t('WHO-Perzentile'))}
+    ${tile(g.perWeek != null ? (g.perWeek >= 0 ? '+' : '') + Math.round(g.perWeek) + ' g' : null, t('Zunahme / Woche (4 Wo.)'))}
+    ${tile(g.forecast[0] ? kgTxt(g.forecast[0].kg) : g.trend[1] ? kgTxt(g.trend[1].kg) : null, g.forecast[0] ? t('Prognose in 1 Monat') : t('Trend in 4 Wochen'))}</div>`;
+  if (!b.birth || !b.sex) html += `<div class="hint" style="margin-top:12px">${t('Für WHO-Perzentilen, Kurve und Prognose bitte unter <b>Daten</b> Geburtsdatum und Geschlecht eintragen.')}</div>`;
+  if (b.birth) html += `<div class="panel"><h4>${b.sex ? t('Gewichtskurve mit WHO-Perzentilen') : t('Gewichtskurve')}</h4>${weightChartSvg(g)}
+    <div class="disc">${b.sex ? t('Flächen: 3.–97. und 15.–85. Perzentile, gepunktet: Median (50.).') + ' ' : ''}${t('Gestrichelt: Prognose. X-Achse: Alter in Monaten, Y-Achse: kg.')}</div></div>`;
   // Prognose-Tabelle & Einordnung
   const items = [];
-  if (g.forecast.length) items.push({lvl:'info', text:`<b>Prognose</b> (wenn ${esc(b.name || 'dein Baby')} auf ${pctTxt(normCdf(g.zRef) * 100)} bleibt): `
-    + g.forecast.map(f => `in ${f.k} Monat${f.k > 1 ? 'en' : ''} ca. ${kgTxt(f.kg)}`).join(', ') + '.'});
-  else if (g.trend.length) items.push({lvl:'info', text:`<b>Trend</b> (aktuelle Zunahme fortgeschrieben): in 2 Wochen ca. ${kgTxt(g.trend[0].kg)}, in 4 Wochen ca. ${kgTxt(g.trend[1].kg)}.`});
-  if (g.perWeek != null && tg) items.push(cmp(g.perWeek, tg, x => Math.round(x) + ' g', 'Zunahme pro Woche',
-    'Eine geringere Zunahme kann normal sein, wenn dein Baby auf seiner Perzentile bleibt. Nimmt es über Wochen deutlich weniger zu oder fällt über Perzentilen-Linien, bitte mit Kinderarzt oder Hebamme besprechen.',
-    'Eine kräftige Zunahme ist bei gestillten Babys in den ersten Monaten häufig und meist unbedenklich.'));
+  if (g.forecast.length) items.push({lvl:'info', text:t('<b>Prognose</b> (wenn {name} auf {p} bleibt):', {name:esc(b.name || t('dein Baby')), p:pctTxt(normCdf(g.zRef) * 100)}) + ' '
+    + g.forecast.map(f => t('in {x} ca. {kg}', {x:unit(f.k, 'month'), kg:kgTxt(f.kg)})).join(', ') + '.'});
+  else if (g.trend.length) items.push({lvl:'info', text:t('<b>Trend</b> (aktuelle Zunahme fortgeschrieben):') + ' ' + t('in {x} ca. {kg}', {x:unit(2, 'week'), kg:kgTxt(g.trend[0].kg)}) + ', ' + t('in {x} ca. {kg}', {x:unit(4, 'week'), kg:kgTxt(g.trend[1].kg)}) + '.'});
+  if (g.perWeek != null && tg) items.push(cmp(g.perWeek, tg, x => Math.round(x) + ' g', t('Zunahme pro Woche'),
+    t('Eine geringere Zunahme kann normal sein, wenn dein Baby auf seiner Perzentile bleibt. Nimmt es über Wochen deutlich weniger zu oder fällt über Perzentilen-Linien, bitte mit Kinderarzt oder Hebamme besprechen.'),
+    t('Eine kräftige Zunahme ist bei gestillten Babys in den ersten Monaten häufig und meist unbedenklich.')));
   // Geburtsgewicht wieder erreicht?
   const first = g.pts[0];
   if (days != null && days <= 21 && first && ageDays(first.e.start) <= 3 && last !== first){
     const regained = last.kg >= first.kg;
-    items.push(regained ? {lvl:'ok', text:'<b>Geburtsgewicht wieder erreicht.</b> 🎉'}
-      : {lvl: days > 14 ? 'warn' : 'info', text:`<b>Geburtsgewicht noch nicht wieder erreicht</b> (${kgTxt(last.kg)} von ${kgTxt(first.kg)}). Üblich ist das nach 10–14 Tagen${days > 14 ? ' – bitte mit Hebamme oder Kinderarzt besprechen' : ''}. Eine Abnahme von bis zu ca. 7–10 % in den ersten Tagen ist normal.`});
+    items.push(regained ? {lvl:'ok', text:t('<b>Geburtsgewicht wieder erreicht.</b> 🎉')}
+      : {lvl: days > 14 ? 'warn' : 'info', text:t('<b>Geburtsgewicht noch nicht wieder erreicht</b> ({a} von {b}).', {a:kgTxt(last.kg), b:kgTxt(first.kg)}) + ' '
+          + (days > 14 ? t('Üblich ist das nach 10–14 Tagen – bitte mit Hebamme oder Kinderarzt besprechen.') : t('Üblich ist das nach 10–14 Tagen.'))
+          + ' ' + t('Eine Abnahme von bis zu ca. 7–10 % in den ersten Tagen ist normal.')});
   }
   // Perzentilen-Abfall
   const zp = g.pts.filter(p => p.z != null && ageDays(p.e.start) >= 14);
   if (zp.length >= 2){
     const drop = Math.max(...zp.map(p => p.z)) - zp[zp.length - 1].z;
-    if (drop > 1.34) items.push({lvl:'warn', text:'<b>Die Gewichtskurve ist über mehr als zwei Perzentilen-Linien abgefallen.</b> Bitte beim Kinderarzt ansprechen.'});
+    if (drop > 1.34) items.push({lvl:'warn', text:t('<b>Die Gewichtskurve ist über mehr als zwei Perzentilen-Linien abgefallen.</b> Bitte beim Kinderarzt ansprechen.')});
   }
   const icon = {ok:'✅', info:'💡', warn:'⚠️', alert:'🚨'};
-  if (items.length) html += `<div class="panel"><h4>💡 Einordnung</h4>${items.map(i => `<div class="adv ${i.lvl}"><span>${icon[i.lvl]}</span><span>${i.text}</span></div>`).join('')}
-    <div class="disc">Die Prognose ist eine Schätzung auf Basis der WHO-Wachstumsstandards (0–24 Monate) und kein ärztlicher Befund. Messwerte unterschiedlicher Waagen können abweichen.</div></div>`;
-  html += `<div class="panel"><h4>Messungen</h4><div class="list" style="box-shadow:none">${g.pts.slice().reverse().map(p => `<div class="row" data-id="${p.e.id}">
-    <div class="ri">⚖️</div><div class="rd">${kgTxt(p.kg)}${p.pct != null ? ` · ${pctTxt(p.pct)}` : ''}<small>${dateDE(p.e.start)}${p.m != null ? ' · ' + esc(ageText(p.e.start)) : ''}${p.e.len ? ' · ' + String(p.e.len).replace('.', ',') + ' cm' : ''}${p.e.head ? ' · KU ' + String(p.e.head).replace('.', ',') + ' cm' : ''}</small></div></div>`).join('')}</div>
+  if (items.length) html += `<div class="panel"><h4>💡 ${t('Einordnung')}</h4>${items.map(i => `<div class="adv ${i.lvl}"><span>${icon[i.lvl]}</span><span>${i.text}</span></div>`).join('')}
+    <div class="disc">${t('Die Prognose ist eine Schätzung auf Basis der WHO-Wachstumsstandards (0–24 Monate) und kein ärztlicher Befund. Messwerte unterschiedlicher Waagen können abweichen.')}</div></div>`;
+  html += `<div class="panel"><h4>${t('Messungen')}</h4><div class="list" style="box-shadow:none">${g.pts.slice().reverse().map(p => `<div class="row" data-id="${p.e.id}">
+    <div class="ri">⚖️</div><div class="rd">${kgTxt(p.kg)}${p.pct != null ? ` · ${pctTxt(p.pct)}` : ''}<small>${dateDE(p.e.start)}${p.m != null ? ' · ' + esc(ageText(p.e.start)) : ''}${p.e.len ? ' · ' + fmtNum(p.e.len) + ' cm' : ''}${p.e.head ? ' · ' + t('KU {n} cm', {n:fmtNum(p.e.head)}) : ''}</small></div></div>`).join('')}</div>
     ${addBtn}</div>`;
   return html;
 }

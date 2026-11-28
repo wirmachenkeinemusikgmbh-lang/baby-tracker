@@ -77,13 +77,13 @@ function classifyStool(lab, days){
 let stoolCamInput = null;
 function openStoolCam(opts){
   opts = opts || {};
-  openSheet(`<h3>📷 Stuhlfarbe prüfen</h3>
-    <div class="hint">So wird das Ergebnis am genauesten:<br>• bei Tageslicht oder hellem, weißem Licht, ohne Blitz<br>
-      • Windel mit Stuhl von oben, etwas Weiß der Windel mit im Bild<br>• keine Farbfilter oder Nachtmodus der Kamera</div>
-    <button class="btn primary wide" data-sc="shoot">📷 Foto aufnehmen</button>
-    <button class="btn wide" data-sc="pick">🖼️ Foto aus der Mediathek</button>
-    <div class="disc">Das Foto bleibt nur kurz auf diesem Gerät zur Analyse – es wird nicht gespeichert und nicht synchronisiert.</div>
-    <button class="btn ghost wide" data-sc="close">Abbrechen</button>`);
+  openSheet(`<h3>📷 ${t('Stuhlfarbe prüfen')}</h3>
+    <div class="hint">${t('So wird das Ergebnis am genauesten:')}<br>• ${t('bei Tageslicht oder hellem, weißem Licht, ohne Blitz')}<br>
+      • ${t('Windel mit Stuhl von oben, etwas Weiß der Windel mit im Bild')}<br>• ${t('keine Farbfilter oder Nachtmodus der Kamera')}</div>
+    <button class="btn primary wide" data-sc="shoot">📷 ${t('Foto aufnehmen')}</button>
+    <button class="btn wide" data-sc="pick">🖼️ ${t('Foto aus der Mediathek')}</button>
+    <div class="disc">${t('Das Foto bleibt nur kurz auf diesem Gerät zur Analyse – es wird nicht gespeichert und nicht synchronisiert.')}</div>
+    <button class="btn ghost wide" data-sc="close">${t('Abbrechen')}</button>`);
   $('#sheet').onclick = ev => {
     const a = ev.target.closest('[data-sc]')?.dataset.sc; if (!a) return;
     if (a === 'close') return closeSheet();
@@ -93,7 +93,7 @@ function openStoolCam(opts){
     stoolCamInput.onchange = async () => {
       const f = stoolCamInput.files[0]; if (!f) return;
       try { analyzeStoolPhoto(await loadImg(f), opts); }
-      catch(e){ alert('Das Foto konnte nicht geöffnet werden.'); }
+      catch(e){ alert(t('Das Foto konnte nicht geöffnet werden.')); }
     };
     stoolCamInput.click();
   };
@@ -109,14 +109,14 @@ function analyzeStoolPhoto(img, opts){
   let stoolPt = null, whitePt = null, mode = 'stool', override = null, kind = opts.kind && opts.kind !== 'wet' ? opts.kind : 'stool';
   const autoW = autoWhite(img);
 
-  openSheet(`<h3>📷 Stuhlfarbe prüfen</h3>
+  openSheet(`<h3>📷 ${t('Stuhlfarbe prüfen')}</h3>
     <div class="seg" id="scMode" style="margin-top:0">
-      <button class="on" data-mode="stool">👆 Stuhl antippen</button><button data-mode="white">⬜ Weiß der Windel</button></div>
+      <button class="on" data-mode="stool">👆 ${t('Stuhl antippen')}</button><button data-mode="white">⬜ ${t('Weiß der Windel')}</button></div>
     <canvas id="scC" style="width:100%;display:block;border-radius:14px;touch-action:manipulation;background:#000"></canvas>
-    <div class="muted" id="scHelp" style="margin-top:8px">Tippe auf eine typische Stelle des Stuhls.</div>
+    <div class="muted" id="scHelp" style="margin-top:8px">${t('Tippe auf eine typische Stelle des Stuhls.')}</div>
     <div id="scRes"></div>
-    <button class="btn ghost wide" data-sc="again">Neues Foto</button>
-    <button class="btn ghost wide" data-sc="close">Schließen</button>`);
+    <button class="btn ghost wide" data-sc="again">${t('Neues Foto')}</button>
+    <button class="btn ghost wide" data-sc="close">${t('Schließen')}</button>`);
   const c = $('#scC');
   const maxH = window.innerHeight * 0.48, scale = Math.min(c.clientWidth / work.width, maxH / work.height);
   c.style.width = Math.round(work.width * scale) + 'px'; c.style.margin = '0 auto';
@@ -146,32 +146,31 @@ function analyzeStoolPhoto(img, opts){
     const idx = override ?? res.cls.idx, sc = STOOL_SCALE[idx], lv = STOOL_LVL[sc.lvl];
     const notes = [];
     const BORDER = {
-      meconium: 'Sehr dunkler Stuhl: In den ersten 2–3 Lebenstagen ist das Mekonium und normal, danach bitte ärztlich abklären. (Tipp: Geburtsdatum eintragen.)',
-      pale: '<b>Heller Grenzbereich:</b> Die Farbe liegt nah an „blass“. Bitte mit der gedruckten Stuhlfarbkarte im gelben Heft vergleichen – wirkt der Stuhl hell, blass oder ist das wiederholt so, bitte beim Kinderarzt melden.',
-      dark: '<b>Sehr dunkles Braun:</b> Meist normal (z. B. mit Beikost oder Eisenpräparat). Wirkt der Stuhl tatsächlich schwarz oder teerartig, bitte ärztlich abklären.',
-      reddish: '<b>Rötliches Braun:</b> Meist normal. Siehst du rote Streifen, Schleim mit Blut oder ist der Stuhl deutlich rot (ohne Rote Bete o. Ä.), bitte ärztlich abklären.'
+      meconium: t('Sehr dunkler Stuhl: In den ersten 2–3 Lebenstagen ist das Mekonium und normal, danach bitte ärztlich abklären. (Tipp: Geburtsdatum eintragen.)'),
+      pale: t('<b>Heller Grenzbereich:</b> Die Farbe liegt nah an „blass“. Bitte mit der gedruckten Stuhlfarbkarte im gelben Heft vergleichen – wirkt der Stuhl hell, blass oder ist das wiederholt so, bitte beim Kinderarzt melden.'),
+      dark: t('<b>Sehr dunkles Braun:</b> Meist normal (z. B. mit Beikost oder Eisenpräparat). Wirkt der Stuhl tatsächlich schwarz oder teerartig, bitte ärztlich abklären.'),
+      reddish: t('<b>Rötliches Braun:</b> Meist normal. Siehst du rote Streifen, Schleim mit Blut oder ist der Stuhl deutlich rot (ohne Rote Bete o. Ä.), bitte ärztlich abklären.')
     };
     if (override == null && res.cls.borderline) notes.push(BORDER[res.cls.borderline]);
-    if (res.wb.dark) notes.push('Das Foto ist recht dunkel – das Ergebnis ist unsicher. Besser bei mehr Licht wiederholen.');
-    if (res.wb.clamped) notes.push('Starker Farbstich im Foto – das Ergebnis ist unsicher. Tippe zum Weißabgleich auf eine saubere weiße Stelle der Windel oder fotografiere bei Tageslicht.');
-    const level = sc.lvl === 'alert' ? '🚨 Bitte heute noch den Kinderarzt anrufen bzw. aufsuchen – außerhalb der Sprechzeiten: ärztlicher Bereitschaftsdienst 116 117.'
-      : sc.lvl === 'warn' ? '⚠️ Bitte zeitnah ärztlich abklären lassen.' : '✅ Diese Farbe ist in der Regel unbedenklich.';
+    if (res.wb.dark) notes.push(t('Das Foto ist recht dunkel – das Ergebnis ist unsicher. Besser bei mehr Licht wiederholen.'));
+    if (res.wb.clamped) notes.push(t('Starker Farbstich im Foto – das Ergebnis ist unsicher. Tippe zum Weißabgleich auf eine saubere weiße Stelle der Windel oder fotografiere bei Tageslicht.'));
+    const level = sc.lvl === 'alert' ? '🚨 ' + t('Bitte heute noch den Kinderarzt anrufen bzw. aufsuchen – außerhalb der Sprechzeiten: ärztlicher Bereitschaftsdienst 116 117.')
+      : sc.lvl === 'warn' ? '⚠️ ' + t('Bitte zeitnah ärztlich abklären lassen.') : '✅ ' + t('Diese Farbe ist in der Regel unbedenklich.');
     $('#scRes').innerHTML = `<div class="panel" style="border:2px solid ${lv.c}">
       <div style="display:flex;align-items:center;gap:12px">
-        <div style="text-align:center;font-size:11px;color:var(--muted)">${dotSvg(rgbHex(res.rgb), 46)}gemessen</div>
+        <div style="text-align:center;font-size:11px;color:var(--muted)">${dotSvg(rgbHex(res.rgb), 46)}${t('gemessen')}</div>
         <div style="font-size:20px;color:var(--muted)">→</div>
-        <div style="text-align:center;font-size:11px;color:var(--muted)">${dotSvg(sc.c, 46)}Skala ${idx + 1}</div>
+        <div style="text-align:center;font-size:11px;color:var(--muted)">${dotSvg(sc.c, 46)}${t('Skala {n}', {n:idx + 1})}</div>
         <div style="flex:1;min-width:0"><b style="font-size:16px">${sc.n}</b><div style="color:${lv.c};font-weight:700;font-size:14px">${lv.icon} ${lv.t}</div></div>
       </div>
       <div style="margin-top:10px;font-size:14px;line-height:1.45">${level}<br><span class="muted">${sc.t}</span></div>
       ${notes.map(n => `<div class="adv warn" style="border-top:1px solid var(--line);margin-top:8px"><span>💡</span><span>${n}</span></div>`).join('')}
-      <details class="advtips"><summary>Farbe passt nicht? Selbst auswählen</summary>
+      <details class="advtips"><summary>${t('Farbe passt nicht? Selbst auswählen')}</summary>
         <div class="chips" style="margin-top:6px">${STOOL_SCALE.map((x, i) => `<button class="chip ${i === idx ? 'on' : ''}" data-ov="${i}" style="display:inline-flex;align-items:center;gap:6px">${dotSvg(x.c, 16)}${i + 1}</button>`).join('')}</div></details>
-      <div class="lbl">Als Windel speichern</div>
-      <div class="chips"><button class="chip ${kind === 'stool' ? 'on' : ''}" data-kind2="stool">💩 Stuhl</button><button class="chip ${kind === 'both' ? 'on' : ''}" data-kind2="both">💧💩 Nass + Stuhl</button></div>
-      <button class="btn primary wide" data-sc="save">Windel speichern (Farbe: ${STOOL_COLOR[SCALE_TO_COLOR[idx]]})</button>
-      <div class="disc">Die Farberkennung per Kamera ist nur eine Orientierung: Licht, Kamera und Display verfälschen Farben.
-        Im Zweifel mit der Stuhlfarbkarte vergleichen oder ärztlich nachfragen – besonders bei hellem, grauem oder blutigem Stuhl.</div></div>`;
+      <div class="lbl">${t('Als Windel speichern')}</div>
+      <div class="chips"><button class="chip ${kind === 'stool' ? 'on' : ''}" data-kind2="stool">💩 ${DIAPER_KIND.stool}</button><button class="chip ${kind === 'both' ? 'on' : ''}" data-kind2="both">💧💩 ${DIAPER_KIND.both}</button></div>
+      <button class="btn primary wide" data-sc="save">${t('Windel speichern (Farbe: {c})', {c:STOOL_COLOR[SCALE_TO_COLOR[idx]]})}</button>
+      <div class="disc">${t('Die Farberkennung per Kamera ist nur eine Orientierung: Licht, Kamera und Display verfälschen Farben. Im Zweifel mit der Stuhlfarbkarte vergleichen oder ärztlich nachfragen – besonders bei hellem, grauem oder blutigem Stuhl.')}</div></div>`;
   };
   draw();
   c.onclick = ev => {
@@ -182,8 +181,8 @@ function analyzeStoolPhoto(img, opts){
   };
   const setMode = () => {
     document.querySelectorAll('#scMode button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
-    $('#scHelp').textContent = mode === 'white' ? 'Tippe auf eine saubere, weiße Stelle der Windel (Weißabgleich).'
-      : stoolPt ? 'Tippe erneut, um eine andere Stelle zu messen.' : 'Tippe auf eine typische Stelle des Stuhls.';
+    $('#scHelp').textContent = mode === 'white' ? t('Tippe auf eine saubere, weiße Stelle der Windel (Weißabgleich).')
+      : stoolPt ? t('Tippe erneut, um eine andere Stelle zu messen.') : t('Tippe auf eine typische Stelle des Stuhls.');
   };
   $('#sheet').onclick = ev => {
     const m = ev.target.closest('[data-mode]'); if (m){ mode = m.dataset.mode; return setMode(); }
@@ -197,8 +196,8 @@ function analyzeStoolPhoto(img, opts){
       const idx = override ?? res.cls.idx, sc = STOOL_SCALE[idx];
       const e = newEvent('diaper', {kind, color: SCALE_TO_COLOR[idx]});
       if (opts.cons) e.cons = opts.cons;
-      e.note = `Farbe per Foto: ${sc.n}${override != null ? ' (selbst gewählt)' : ''}`;
-      closeSheet(); addEvent(e, 'Windel: ' + detail(e)); stoolAlert(e);
+      e.note = t('Farbe per Foto: {x}', {x:sc.n}) + (override != null ? ' ' + t('(selbst gewählt)') : '');
+      closeSheet(); addEvent(e, t('Windel: {x}', {x:detail(e)})); stoolAlert(e);
     }
   };
 }
