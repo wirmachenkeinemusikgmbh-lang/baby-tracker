@@ -241,7 +241,6 @@ const dotSvg = (fill, size) => `<svg width="${size}" height="${size}" viewBox="0
 function stoolScaleHtml(){
   const row = 'display:flex;align-items:center;gap:10px;padding:7px 8px;margin-top:6px;border-radius:12px;';
   return `<div class="sscale"><div class="lbl" style="margin-top:14px">Farbskala Stuhlgang</div>
-    <button class="btn wide" data-stoolcam="1">📷 Stuhlfarbe per Foto prüfen</button>
     ${stoolPieSvg()}
     <div style="display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:center;font-size:13px;margin:6px 0 8px">
       ${Object.values(STOOL_LVL).map(l => `<span style="display:inline-flex;align-items:center;gap:5px">${dotSvg(l.c, 14)}${l.t}</span>`).join('')}</div>
@@ -261,6 +260,7 @@ function adviceHtml(type){
   if (!curBaby().birth) return `<div class="panel"><h4>💡 Altersgerechte Tipps</h4>
     <div class="muted">Trag das Geburtsdatum ein, dann bekommst du hier Tipps und Orientierungswerte passend zum Alter deines Babys.</div>
     <button class="btn wide" data-go="birth">Geburtsdatum eintragen</button>
+    ${cat === 'diaper' ? '<button class="btn primary wide" data-stoolcam="1">📷 Stuhlfarbe per Foto prüfen</button>' : ''}
     ${cat === 'diaper' ? `<details class="advtips"><summary>Farbskala Stuhlgang</summary>${stoolScaleHtml()}</details>` : ''}</div>`;
   const days = ageDays();
   if (days < 0) return '';
@@ -270,6 +270,7 @@ function adviceHtml(type){
   return `<div class="panel"><h4>💡 Tipps · ${esc(ageText())} (${lebensmonat()}. Lebensmonat)</h4>
     <div class="muted" style="margin-bottom:6px">Auswertung der letzten 7 Tage im Vergleich zu typischen Werten für ${band.label}:</div>
     ${items.map(i => `<div class="adv ${i.lvl}"><span>${icon[i.lvl]}</span><span>${i.text}</span></div>`).join('')}
+    ${cat === 'diaper' ? '<button class="btn primary wide" data-stoolcam="1">📷 Stuhlfarbe per Foto prüfen</button>' : ''}
     <details class="advtips"><summary>Allgemeine Tipps für dieses Alter${cat === 'diaper' ? ' & Farbskala Stuhlgang' : ''}</summary>
       <ul>${band.tips[cat].map(t => `<li>${t}</li>`).join('')}</ul>${cat === 'diaper' ? stoolScaleHtml() : ''}</details>
     <div class="disc">Allgemeine Orientierungswerte – jedes Kind ist anders. Kein Ersatz für ärztlichen Rat. Bei Sorgen: Kinderarzt oder Hebamme;
